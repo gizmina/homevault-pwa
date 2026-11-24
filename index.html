@@ -95,7 +95,7 @@
             <button
               type="button"
               id="btnOpenStatementUpload"
-              title="Kontoauszug (.csv) lokal hochladen &amp; auswerten"
+              title="Kontoauszug (.csv / .pdf) lokal hochladen &amp; auswerten"
               class="inline-flex items-center gap-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-xs lg:text-sm font-medium bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60 transition"
             >
               <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -525,7 +525,7 @@
             PDF-Dokumente anhängen (Drag &amp; Drop)
           </label>
           <div id="pdfDropZone" class="cursor-pointer rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 hover:border-sky-500 p-6 text-center transition">
-            <input type="file" id="contractPdfInput" multiple accept="application/pdf,.pdf" class="hidden" />
+            <input type="file" id="contractPdfInput" multiple accept=".pdf,application/pdf" class="hidden" />
             <svg class="w-8 h-8 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
             </svg>
@@ -651,13 +651,13 @@
     </div>
   </div>
 
-  <!-- Kontoauszug Upload Modal (.csv) – 1:1 QNAP base.html Modal -->
+  <!-- Kontoauszug Upload Modal (.csv / .pdf) – 1:1 QNAP base.html Modal -->
   <div id="statementModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print">
     <div class="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
       <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h2 class="font-bold text-base text-slate-900 dark:text-white">Kontoauszug hochladen</h2>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Lokale Fixkosten-Erkennung (Bank-, Kreditkarten- &amp; PayPal-CSV – 100 % offline)</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Lokale Fixkosten-Erkennung (Bank-, Kreditkarten- &amp; PayPal-CSV sowie PDF – 100 % offline)</p>
         </div>
         <button type="button" id="btnCloseStatementModal" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -668,12 +668,12 @@
 
       <div class="p-5 space-y-4 overflow-y-auto">
         <div id="csvDropZone" class="cursor-pointer rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 hover:border-emerald-500 p-6 text-center transition">
-          <input type="file" id="csvFileInput" accept=".csv,text/csv" class="hidden" />
+          <input type="file" id="csvFileInput" accept=".csv,.pdf,application/pdf,text/csv" class="hidden" />
           <svg class="w-9 h-9 mx-auto text-emerald-500 mb-2" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
           </svg>
-          <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">CSV-Kontoauszug hier ablegen oder klicken</p>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ING, Sparkasse, DKB, American Express &amp; PayPal CSVs werden lokal erkannt.</p>
+          <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">CSV- oder PDF-Kontoauszug hier ablegen oder klicken</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ING, Sparkasse, DKB, American Express &amp; PayPal (CSV &amp; PDF) werden lokal erkannt.</p>
         </div>
 
         <div id="csvSummary" class="hidden p-3.5 rounded-xl border bg-sky-50 dark:bg-sky-950/50 border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-200 text-xs sm:text-sm font-medium"></div>

@@ -15,7 +15,7 @@ window.HVPdfService = (() => {
   async function extractTextAndSuggestions(uint8Array) {
     ensureWorker();
     if (typeof pdfjsLib === 'undefined') {
-      return { text: '', suggestions: { ibans: [], amounts: [], dates: [], contractNumbers: [] } };
+      return { text: '', suggestions: { providers: [], ibans: [], amounts: [], dates: [], contractNumbers: [] } };
     }
 
     const loadingTask = pdfjsLib.getDocument({ data: uint8Array.slice() });
@@ -31,17 +31,57 @@ window.HVPdfService = (() => {
     }
 
     const fullText = pageTexts.join('\n').replace(/[ \t]{2,}/g, ' ').trim();
-    const suggestions = extractPatterns(fullText);
+    const suggestions = await extractPatterns(fullText);
     return { text: fullText, suggestions, pageCount: pdf.numPages };
   }
 
-  function extractPatterns(text) {
+  async function extractPatterns(text) {
+    const providers = [];
     const ibans = [];
     const amounts = [];
     const dates = [];
     const contractNumbers = [];
 
-    if (!text) return { ibans, amounts, dates, contractNumbers };
+    if (!text) return { providers, ibans, amounts, dates, contractNumbers };
+
+    // 0. Known providers from offline catalog (providers_contacts.json)
+    try {
+      if (window.HVEmergencyContacts && typeof window.HVEmergencyContacts.loadCatalog === 'function') {
+        const catalog = await window.HVEmergencyContacts.loadCatalog();
+        const lower = text.toLowerCase();
+        if (Array.isArray(catalog)) {
+          for (const entry of catalog) {
+            const name = entry.provider || entry.name || '';
+            const kws = Array.isArray(entry.keywords) ? entry.keywords : [name];
+            if (name && kws.some((kw) => {
+              const k = String(kw || '').trim().toLowerCase();
+              if (!k) return false;
+              if (k.length <= 4) {
+                return new RegExp(`(^|[^a-z0-9äöüß])${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^a-z0-9äöüß])`, 'i').test(lower);
+              }
+              return lower.includes(k);
+            })) {
+              if (!providers.includes(name)) providers.push(name);
+              if (providers.length >= 3) break;
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore catalog lookup errors
+    }
+
+    // Fallback: company names with GmbH / AG / eG / SE / KG in first 600 chars
+    if (providers.length === 0) {
+      const head = text.slice(0, 600);
+      const compRe = /\b([A-ZÄÖÜ][A-Za-zÄÖÜäöüß0-9&\-\.\s]{2,40}\s(?:GmbH|AG|eG|SE|OHG|KG|mbH|e\.V\.))/g;
+      let cm;
+      while ((cm = compRe.exec(head)) !== null) {
+        const name = cm[1].replace(/\s{2,}/g, ' ').trim();
+        if (name.length >= 4 && !providers.includes(name)) providers.push(name);
+        if (providers.length >= 2) break;
+      }
+    }
 
     // 1. IBANs (DE + European)
     const ibanRe = /\b([A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){3,7}(?:\s?[A-Z0-9]{1,4})?)\b/g;
@@ -87,7 +127,7 @@ window.HVPdfService = (() => {
       if (contractNumbers.length >= 5) break;
     }
 
-    return { ibans, amounts, dates, contractNumbers };
+    return { providers, ibans, amounts, dates, contractNumbers };
   }
 
   /* --- Modal Canvas Renderer --- */

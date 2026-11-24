@@ -906,16 +906,17 @@
   }
 
   async function handleFormPdfFiles(fileList) {
-    const files = Array.from(fileList || []).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    const files = Array.from(fileList || []).filter((f) => f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf');
     if (!files.length) return;
 
-    const allSuggestions = { ibans: [], amounts: [], dates: [], contractNumbers: [] };
+    const allSuggestions = { providers: [], ibans: [], amounts: [], dates: [], contractNumbers: [] };
     for (const file of files) {
       const bytes = new Uint8Array(await file.arrayBuffer());
       let extractedText = '';
       try {
         const res = await PdfSvc.extractTextAndSuggestions(bytes);
         extractedText = res.text || '';
+        for (const x of (res.suggestions.providers || [])) if (!allSuggestions.providers.includes(x)) allSuggestions.providers.push(x);
         for (const x of res.suggestions.ibans) if (!allSuggestions.ibans.includes(x)) allSuggestions.ibans.push(x);
         for (const x of res.suggestions.amounts) if (!allSuggestions.amounts.includes(x)) allSuggestions.amounts.push(x);
         for (const x of res.suggestions.dates) if (!allSuggestions.dates.some((d) => d.iso === x.iso)) allSuggestions.dates.push(x);
@@ -933,6 +934,15 @@
 
   function renderPdfSuggestionChips(sugg) {
     const chips = [];
+    for (const prov of (sugg.providers || [])) {
+      chips.push({
+        label: `Anbieter: ${prov}`,
+        action: () => {
+          $('fieldProvider').value = prov;
+          triggerContactLookup();
+        }
+      });
+    }
     for (const num of sugg.contractNumbers) chips.push({ label: `Nr: ${num}`, action: () => { $('fieldContractNumber').value = num; } });
     for (const amt of sugg.amounts) chips.push({ label: `Betrag: ${amt} €`, action: () => { $('fieldAmount').value = amt; updateMonthlyPreview(); } });
     for (const d of sugg.dates) chips.push({ label: `Datum: ${d.display}`, action: () => { if (!$('fieldStartDate').value) $('fieldStartDate').value = d.iso; else $('fieldEndDate').value = d.iso; } });
@@ -1099,12 +1109,15 @@
     if (!file) return;
     const summaryEl = $('csvSummary');
     summaryEl.classList.remove('hidden');
-    summaryEl.textContent = 'Kontoauszug wird lokal analysiert...';
+    summaryEl.textContent = 'Kontoauszug (CSV/PDF) wird lokal analysiert...';
     try {
-      const res = await CsvSvc.parseCsvFile(file);
+      const res = await CsvSvc.parseStatementFile(file);
       csvCandidates = res.candidates;
       const fmtMap = { bank: 'Bank-Kontoauszug', amex: 'American Express', paypal: 'PayPal' };
-      summaryEl.innerHTML = `Format: <strong>${fmtMap[res.format] || res.format}</strong> &bull; ${res.totalRows} Zeilen &bull; ${res.expenseRows} Ausgaben &bull; <strong>${csvCandidates.length}</strong> wiederkehrende Posten erkannt.`;
+      const typeLabel = res.sourceType === 'pdf'
+        ? `PDF (${res.numPages || 1} S.)`
+        : 'CSV';
+      summaryEl.innerHTML = `Typ: <strong>${typeLabel}</strong> &bull; Format: <strong>${fmtMap[res.format] || res.format}</strong> &bull; ${res.expenseRows} Ausgaben &bull; <strong>${csvCandidates.length}</strong> Posten erkannt.`;
 
       if (!csvCandidates.length) {
         $('csvTableWrap').classList.add('hidden');
