@@ -49,6 +49,7 @@
   let deferredInstallPrompt = null;
   let toastTimer = null;
   let lastEditedContractId = null;
+  let isResetting = false;
 
   const $ = (id) => document.getElementById(id);
 
@@ -1509,6 +1510,28 @@
       window.hvToast(demoMode ? 'Demo-Ansicht aktiviert' : 'Haupt-Account aktiviert', 'info');
     });
 
+    $('btnSettingsResetAllData').addEventListener('click', async () => {
+      const confirmed = confirm(
+        'Achtung: Alle lokalen Daten (homevault.db, alle hochgeladenen PDFs in uploads/ sowie die gespeicherte Ordner-Verknüpfung) werden unwiderruflich gelöscht.\n\nHast du vorher ein ZIP-Backup erstellt? Wirklich alle lokalen Daten zurücksetzen?'
+      );
+      if (!confirmed) return;
+
+      isResetting = true;
+      try {
+        // Laufende sql.js-Instanz im Arbeitsspeicher sofort schließen & leeren
+        if (db) {
+          try { db.close(); } catch { /* ignore */ }
+          db = null;
+        }
+        await Storage.wipeAllLocalData();
+        localStorage.removeItem('hv_emergency_mode');
+        window.location.reload();
+      } catch (err) {
+        isResetting = false;
+        window.hvToast(`Zurücksetzen fehlgeschlagen: ${err.message}`, 'error');
+      }
+    });
+
     // Escape key closes modals
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -1529,7 +1552,7 @@
     }
     window.addEventListener('resize', hvSyncStickyOffsets, { passive: true });
     window.addEventListener('beforeunload', () => {
-      if (db) Storage.flushSave(() => db.export());
+      if (db && !isResetting) Storage.flushSave(() => db.export());
     });
   }
 

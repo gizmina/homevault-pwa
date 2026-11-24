@@ -161,8 +161,37 @@ window.HVStorageManager = (() => {
       clearTimeout(saveTimer);
       saveTimer = null;
     }
+    pendingGetBytes = null;
     await clearHandleFromIdb();
     rootHandle = null;
+  }
+
+  async function wipeAllLocalData() {
+    // 1. Laufende Debounce-Timer sofort stoppen, damit nichts mehr zurückgeschrieben wird
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    pendingGetBytes = null;
+
+    // 2. homevault.db und uploads/ im aktuellen Speicherort (FSA-Ordner oder OPFS) entfernen
+    if (rootHandle) {
+      try {
+        await rootHandle.removeEntry(DB_FILENAME);
+      } catch {
+        // Datei evtl. nicht vorhanden
+      }
+      try {
+        await rootHandle.removeEntry(UPLOADS_DIR, { recursive: true });
+      } catch {
+        // Ordner evtl. nicht vorhanden
+      }
+    }
+
+    // 3. Gespeichertes Verzeichnis-Handle in IndexedDB löschen
+    await clearHandleFromIdb();
+    rootHandle = null;
+    mode = null;
   }
 
   /* --- Low-level Directory/File Helpers --- */
@@ -357,6 +386,7 @@ window.HVStorageManager = (() => {
     pickDirectory,
     reactivatePermission,
     resetDirectory,
+    wipeAllLocalData,
     hasDatabaseFile,
     readDatabaseBytes,
     writeDatabaseBytesAtomic,
