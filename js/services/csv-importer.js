@@ -7,7 +7,7 @@ window.HVCsvImporter = (() => {
     { cat: 'Internet & Mobilfunk', kws: ['telekom', 'vodafone', 'o2', 'telefonica', '1&1', 'congstar', 'freenet', 'pyur', 'm-net', 'starlink', 'fraenk', 'sim.de', 'aldi talk'] },
     { cat: 'Versicherung', kws: ['versicherung', 'allianz', 'huk', 'ergo', 'axa', 'debeka', 'devk', 'signal iduna', 'r+v', 'gothaer', 'zurich', 'generali', 'barmenia', 'hansemerkur', 'haftpflicht', 'hausrat', 'rechtsschutz', 'krankenkasse', 'tk ', 'techniker', 'aok', 'barmer'] },
     { cat: 'KFZ & Mobilität', kws: ['adac', 'bahn', 'deutschlandticket', 'db vertrieb', 'leasing', 'kfz', 'finanzamt', 'zoll', 'parken', 'tank', 'vag', 'mvg', 'bvg', 'sixt', 'miles'] },
-    { cat: 'Bank & Finanzen', kws: ['ing-diba', 'dkb', 'sparkasse', 'volksbank', 'commerzbank', 'deutsche bank', 'amex', 'american express', 'trade republic', 'scalable', 'etf', 'wertpapier', 'sparplan', 'depot', 'degussa', 'flexgold', 'kredit', 'darlehen', 'kontoführung'] }
+    { cat: 'Bank & Finanzen', kws: ['ing-diba', 'ing etf', 'dkb', 'sparkasse', 'volksbank', 'commerzbank', 'deutsche bank', 'amex', 'american express', 'trade republic', 'scalable', 'etf', 'wertpapier', 'sparplan', 'depot', 'degussa', 'flexgold', 'kredit', 'darlehen', 'kontoführung', 'isin'] }
   ];
 
   const KNOWN_RECURRING_HINTS = [
@@ -19,6 +19,35 @@ window.HVCsvImporter = (() => {
     'abo', 'beitrag', 'mitgliedschaft', 'wohnungsgenossenschaft', 'handy', 'dsl', 'glasfaser'
   ];
 
+  const SECURITY_SKIP_WORDS = ['wertpapiergutschrift', 'storno kauf', 'storno-kauf', 'stornokauf'];
+
+  const KNOWN_ETF_BY_ISIN = {
+    LU0496786657: 'ING ETF – S&P 500 (LU0496786657)',
+    LU1861132840: 'ING ETF – MSCI Robotics & AI (LU1861132840)',
+    LU2023678878: 'ING ETF – MSCI Digital Economy (LU2023678878)',
+    IE00BM67HT60: 'ING ETF – MSCI World Info Tech (IE00BM67HT60)',
+    IE00BJ0KDQ92: 'ING ETF – MSCI World (IE00BJ0KDQ92)'
+  };
+
+  const KNOWN_ETF_OCR_FIXES = {
+    IEOOBJOKDQ92: 'IE00BJ0KDQ92',
+    IE00BJOKDQ92: 'IE00BJ0KDQ92',
+    IEOOBJ0KDQ92: 'IE00BJ0KDQ92',
+    IEOOBM67HT60: 'IE00BM67HT60',
+    IEOOBM67HT6O: 'IE00BM67HT60',
+    LUO496786657: 'LU0496786657',
+    LU186113284O: 'LU1861132840',
+    LU2O23678878: 'LU2023678878'
+  };
+
+  const KNOWN_ETF_BY_NAME = [
+    { match: /mulacspp500|s&p\s*500/i, isin: 'LU0496786657', label: 'ING ETF – S&P 500 (LU0496786657)' },
+    { match: /msci\s*rob\+ai|robotics/i, isin: 'LU1861132840', label: 'ING ETF – MSCI Robotics & AI (LU1861132840)' },
+    { match: /msci\s*dig\.?econo|digital\s*econ/i, isin: 'LU2023678878', label: 'ING ETF – MSCI Digital Economy (LU2023678878)' },
+    { match: /msci\s*wo\.?in\.?te|world\s*info/i, isin: 'IE00BM67HT60', label: 'ING ETF – MSCI World Info Tech (IE00BM67HT60)' },
+    { match: /msci\s*world/i, isin: 'IE00BJ0KDQ92', label: 'ING ETF – MSCI World (IE00BJ0KDQ92)' }
+  ];
+
   const PDF_NOISE_LINES = [
     'alter saldo', 'neuer saldo', 'anfangssaldo', 'endsaldo', 'zwischensumme',
     'kontostand', 'übertrag', 'uebertrag', 'seite ', 'iban ', 'bic ',
@@ -26,6 +55,118 @@ window.HVCsvImporter = (() => {
     'umsatzübersicht', 'kontoauszug', 'girokonto', 'auszugsnummer', 'kundennummer',
     'zahlung dankend erhalten', 'summe der', 'gesamtsumme', 'sollzinsen', 'habenzinsen'
   ];
+
+  function normalizeIsin(rawIsin) {
+    if (!rawIsin) return null;
+    let code = String(rawIsin).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length !== 12) return null;
+    if (KNOWN_ETF_OCR_FIXES[code]) return KNOWN_ETF_OCR_FIXES[code];
+    // Toleranz für typische PDF/OCR-Verwechslung O -> 0 in ISIN-Positionen 2..3 (z. B. IEOO -> IE00, LUO -> LU0)
+    const prefix = code.slice(0, 2);
+    const body = code.slice(2);
+    const fixedBody = body.replace(/^OO/, '00').replace(/^O/, '0');
+    const candidate = prefix + fixedBody;
+    if (KNOWN_ETF_OCR_FIXES[candidate]) return KNOWN_ETF_OCR_FIXES[candidate];
+    if (KNOWN_ETF_BY_ISIN[candidate]) return candidate;
+    // Auch wenn O in der Mitte bei bekannten ISINs vorkommt
+    const allZeroCandidate = prefix + body.replace(/O/g, '0');
+    if (KNOWN_ETF_BY_ISIN[allZeroCandidate]) return allZeroCandidate;
+    return candidate;
+  }
+
+  function extractSecurityMetadata(merchant, purpose) {
+    const combined = `${merchant || ''} ${purpose || ''}`.replace(/\s{2,}/g, ' ').trim();
+    const lower = combined.toLowerCase();
+
+    if (SECURITY_SKIP_WORDS.some((sw) => lower.includes(sw))) {
+      return { skip: true };
+    }
+
+    const isSecurity =
+      lower.includes('wertpapierkauf') ||
+      lower.includes('wp-abrechnung') ||
+      /\bisin\s*[:#]?\s*[a-z]{2}[a-z0-9]{10}\b/i.test(combined);
+
+    if (!isSecurity) return null;
+
+    // ISIN mit OCR-Toleranz extrahieren
+    const isinMatch = combined.match(/\bISIN\s*[:#]?\s*([A-Z]{2}[A-Z0-9]{10})\b(?:\s+([^|;\n]{2,65}))?/i);
+    let isin = isinMatch ? normalizeIsin(isinMatch[1]) : null;
+    let fundSnippet = isinMatch && isinMatch[2] ? isinMatch[2] : '';
+
+    // Rauschen am Ende der Fondsbezeichnung entfernen (Referenz, Depot, Kurse, Zahlenblöcke)
+    fundSnippet = fundSnippet
+      .replace(/\b(?:Referenz|Ref\.?|Depot|WP-?Abrechnung|Ausführung|Kurs|Stück|Order|Mandat)\b.*$/i, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .replace(/^[\-–:|;]+|[\-–:|;]+$/g, '')
+      .trim();
+
+    // 1. Exakter Treffer über bekannte ISIN
+    if (isin && KNOWN_ETF_BY_ISIN[isin]) {
+      const label = KNOWN_ETF_BY_ISIN[isin];
+      return {
+        isSecurity: true,
+        isin,
+        provider: label,
+        title: label,
+        category: 'Bank & Finanzen',
+        costType: 'investment',
+        groupKey: `isin:${isin}`
+      };
+    }
+
+    // 2. Treffer über bekannte Fondsbezeichnung (auch falls ISIN im OCR abgeschnitten war)
+    for (const rule of KNOWN_ETF_BY_NAME) {
+      if (rule.match.test(combined)) {
+        const finalIsin = isin || rule.isin;
+        const label = KNOWN_ETF_BY_ISIN[finalIsin] || rule.label;
+        return {
+          isSecurity: true,
+          isin: finalIsin,
+          provider: label,
+          title: label,
+          category: 'Bank & Finanzen',
+          costType: 'investment',
+          groupKey: `isin:${finalIsin}`
+        };
+      }
+    }
+
+    // 3. Allgemeiner Fallback für beliebige andere ISINs
+    if (isin) {
+      const label = fundSnippet
+        ? `Wertpapier-Sparplan (${fundSnippet} – ${isin})`
+        : `Wertpapier-Sparplan (${isin})`;
+      return {
+        isSecurity: true,
+        isin,
+        provider: label,
+        title: label,
+        category: 'Bank & Finanzen',
+        costType: 'investment',
+        groupKey: `isin:${isin}`
+      };
+    }
+
+    // 4. Wertpapierkauf ohne ISIN -> über WP-Abrechnung / Referenz unterscheiden, nicht zusammenwerfen
+    const refMatch = combined.match(/(?:WP-?ABRECHNUNG|Referenz)\s*[:#]?\s*([A-Z0-9\-]{4,32})/i);
+    if (refMatch) {
+      const ref = refMatch[1].trim();
+      const label = `Wertpapier-Sparplan (Ref. ${ref})`;
+      return {
+        isSecurity: true,
+        isin: null,
+        provider: label,
+        title: label,
+        category: 'Bank & Finanzen',
+        costType: 'investment',
+        groupKey: `wp-ref:${ref.toLowerCase()}`
+      };
+    }
+
+    return null;
+  }
 
   function guessCategory(merchant, purpose) {
     const hay = `${merchant} ${purpose}`.toLowerCase();
@@ -38,22 +179,17 @@ window.HVCsvImporter = (() => {
   function parseDateFlexible(raw, fallbackYear) {
     if (!raw) return null;
     const s = String(raw).trim();
-    // DD.MM.YYYY
     let m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
     if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-    // DD.MM.YY
     m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2})(?!\d)/);
     if (m) return `20${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-    // DD.MM. (common in Sparkasse / Amex PDFs)
     m = s.match(/^(\d{1,2})\.(\d{1,2})\.$/);
     if (m) {
       const yr = fallbackYear || new Date().getFullYear();
       return `${yr}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
     }
-    // YYYY-MM-DD
     m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-    // MM/DD/YYYY (Amex US/EN)
     m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
     return null;
@@ -141,12 +277,19 @@ window.HVCsvImporter = (() => {
   function buildCandidatesFromTransactions(transactions, isSingleMonthStatement = false) {
     const groups = new Map();
     for (const tx of transactions) {
-      const key = merchantKey(tx.merchant);
+      // Spezifischer Gruppierungsschlüssel (z. B. isin:LU0496786657 oder normalizedName)
+      // Verhindert, dass mehrere Wertpapierkäufe am selben Tag mit gleichem Betrag zusammengefasst werden!
+      const key = tx.groupKey || merchantKey(tx.merchant);
       if (!key || key.length < 2) continue;
       if (!groups.has(key)) {
         groups.set(key, {
           key,
           merchant: tx.merchant,
+          titleOverride: tx.titleOverride || null,
+          categoryOverride: tx.categoryOverride || null,
+          costTypeOverride: tx.costTypeOverride || null,
+          contractNumber: tx.isin || null,
+          isSecurity: !!tx.isSecurity,
           purposes: new Set(),
           dates: [],
           amounts: []
@@ -164,9 +307,8 @@ window.HVCsvImporter = (() => {
       const count = g.amounts.length;
       const samplePurpose = Array.from(g.purposes)[0] || '';
       const hay = `${g.merchant} ${samplePurpose}`.toLowerCase();
-      const isKnownRecurring = KNOWN_RECURRING_HINTS.some((kw) => hay.includes(kw));
+      const isKnownRecurring = g.isSecurity || KNOWN_RECURRING_HINTS.some((kw) => hay.includes(kw));
 
-      // Keep if recurring (>=2 bookings) OR matches known recurring provider OR single-month PDF statement
       if (count < 2 && !isKnownRecurring && !isSingleMonthStatement) continue;
 
       const avgAmount = Math.round((g.amounts.reduce((a, b) => a + b, 0) / count) * 100) / 100;
@@ -174,15 +316,19 @@ window.HVCsvImporter = (() => {
       const maxAmt = Math.max(...g.amounts);
       const isVariable = maxAmt - minAmt > Math.max(2.0, avgAmount * 0.08);
       const cycle = inferBillingCycle(uniqueDates);
-      const category = guessCategory(g.merchant, samplePurpose);
-      const costType = window.HVSchema.detectInvestmentCostType(g.merchant, samplePurpose, '');
+      const category = g.categoryOverride || guessCategory(g.merchant, samplePurpose);
+      const costType = g.costTypeOverride || window.HVSchema.detectInvestmentCostType(g.merchant, samplePurpose, '');
+
+      const title = g.titleOverride
+        || (samplePurpose && samplePurpose.toLowerCase() !== g.merchant.toLowerCase()
+          ? `${g.merchant} (${samplePurpose.slice(0, 45)})`
+          : g.merchant);
 
       candidates.push({
         id: g.key,
         provider_name: g.merchant,
-        title: samplePurpose && samplePurpose.toLowerCase() !== g.merchant.toLowerCase()
-          ? `${g.merchant} (${samplePurpose.slice(0, 45)})`
-          : g.merchant,
+        title,
+        contract_number: g.contractNumber || null,
         category,
         cost_amount: avgAmount,
         billing_cycle: cycle,
@@ -190,12 +336,39 @@ window.HVCsvImporter = (() => {
         is_variable: isVariable,
         occurrences: count,
         last_date: uniqueDates.length ? uniqueDates[uniqueDates.length - 1] : null,
-        selected: count >= 2 || isKnownRecurring
+        selected: g.isSecurity || count >= 2 || isKnownRecurring
       });
     }
 
     candidates.sort((a, b) => (b.selected ? 1 : 0) - (a.selected ? 1 : 0) || b.occurrences - a.occurrences || b.cost_amount - a.cost_amount);
     return candidates;
+  }
+
+  function enrichTransaction(date, rawMerchant, rawPurpose, amount) {
+    const sec = extractSecurityMetadata(rawMerchant, rawPurpose);
+    if (sec && sec.skip) return null;
+    if (sec && sec.isSecurity) {
+      return {
+        date,
+        merchant: sec.provider,
+        titleOverride: sec.title,
+        categoryOverride: sec.category,
+        costTypeOverride: sec.costType,
+        isin: sec.isin,
+        isSecurity: true,
+        groupKey: sec.groupKey,
+        purpose: rawPurpose,
+        amount
+      };
+    }
+    const cleanMerchant = normalizeMerchant(rawMerchant) || normalizeMerchant(rawPurpose.slice(0, 50));
+    if (!cleanMerchant || cleanMerchant.length < 2) return null;
+    return {
+      date,
+      merchant: cleanMerchant,
+      purpose: rawPurpose,
+      amount
+    };
   }
 
   /* --- CSV Parser (PapaParse) --- */
@@ -214,7 +387,6 @@ window.HVCsvImporter = (() => {
     const headerIdx = detectHeaderRowIndex(lines);
     const trimmedCsv = lines.slice(headerIdx).join('\n');
 
-    // Auto-detect delimiter (semicolon is standard in German bank exports)
     const sampleHeader = lines[headerIdx] || '';
     const semiCount = (sampleHeader.match(/;/g) || []).length;
     const commaCount = (sampleHeader.match(/,/g) || []).length;
@@ -244,8 +416,8 @@ window.HVCsvImporter = (() => {
       'auftraggeber', 'begünstigter', 'name', 'beschreibung', 'description'
     ]);
     const colPurpose = findCol(headers, ['verwendungszweck', 'buchungstext', 'typ', 'artikelbezeichnung', 'beschreibung', 'description']);
+    const colBookingText = findCol(headers, ['buchungstext', 'typ', 'type']);
     const colStatus = findCol(headers, ['status']);
-    const colType = findCol(headers, ['typ', 'type', 'buchungstext']);
 
     if (!colAmount && !colSoll) {
       throw new Error('Betragsspalte konnte in der CSV nicht erkannt werden.');
@@ -271,12 +443,13 @@ window.HVCsvImporter = (() => {
 
       if (amount === 0) continue;
 
-      const merchant = normalizeMerchant(colMerchant ? row[colMerchant] : '');
-      const purpose = String(colPurpose ? (row[colPurpose] || '') : '').trim();
+      const rawMerchant = String(colMerchant ? (row[colMerchant] || '') : '').trim();
+      const rawPurpose = String(colPurpose ? (row[colPurpose] || '') : '').trim();
+      const rawBookingText = String(colBookingText ? (row[colBookingText] || '') : '').trim();
+      const fullPurpose = [rawBookingText, rawPurpose].filter((v, i, a) => v && a.indexOf(v) === i).join(' ');
       const txDate = parseDateFlexible(colDate ? row[colDate] : '');
       const txStatus = String(colStatus ? (row[colStatus] || '') : '').toLowerCase();
-      const txType = String(colType ? (row[colType] || '') : '').toLowerCase();
-      const combinedLower = `${merchant} ${purpose} ${txType}`.toLowerCase();
+      const combinedLower = `${rawMerchant} ${fullPurpose}`.toLowerCase();
 
       let expenseAmount = 0;
 
@@ -287,7 +460,7 @@ window.HVCsvImporter = (() => {
       } else if (format === 'paypal') {
         if (amount >= 0) continue;
         if (txStatus.includes('storniert') || txStatus.includes('rückerstattet') || txStatus.includes('abgelehnt')) continue;
-        if (txType.includes('bankkonto') || txType.includes('kreditkarte') || txType.includes('allgemeine kartenabbuchung')) continue;
+        if (rawBookingText.toLowerCase().includes('bankkonto') || rawBookingText.toLowerCase().includes('kreditkarte') || rawBookingText.toLowerCase().includes('allgemeine kartenabbuchung')) continue;
         expenseAmount = Math.abs(amount);
       } else {
         if (amount >= 0) continue;
@@ -295,16 +468,21 @@ window.HVCsvImporter = (() => {
         expenseAmount = Math.abs(amount);
       }
 
-      if (!merchant && !purpose) continue;
-      transactions.push({
-        date: txDate,
-        merchant: merchant || purpose.slice(0, 50),
-        purpose,
-        amount: Math.round(expenseAmount * 100) / 100
-      });
+      const enriched = enrichTransaction(txDate, rawMerchant, fullPurpose, Math.round(expenseAmount * 100) / 100);
+      if (enriched) transactions.push(enriched);
     }
 
-    const candidates = buildCandidatesFromTransactions(transactions, false);
+    // Check date span for single-month CSVs
+    const uniqueDates = transactions.map((t) => t.date).filter(Boolean).sort();
+    let isSingleMonth = false;
+    if (uniqueDates.length >= 2) {
+      const spanDays = Math.round((new Date(`${uniqueDates[uniqueDates.length - 1]}T00:00:00`) - new Date(`${uniqueDates[0]}T00:00:00`)) / 86400000);
+      isSingleMonth = spanDays <= 45;
+    } else if (uniqueDates.length === 1) {
+      isSingleMonth = true;
+    }
+
+    const candidates = buildCandidatesFromTransactions(transactions, isSingleMonth);
     return {
       sourceType: 'csv',
       format,
@@ -314,7 +492,7 @@ window.HVCsvImporter = (() => {
     };
   }
 
-  /* --- PDF Statement Parser (pdf.js Y-Coordinate Row Reconstruction) --- */
+  /* --- PDF Statement Parser (pdf.js Y-Coordinate Row Reconstruction + Multi-line ING Support) --- */
   async function extractPdfTableLines(uint8Array) {
     if (typeof pdfjsLib === 'undefined') {
       throw new Error('pdf.js ist nicht geladen.');
@@ -330,7 +508,7 @@ window.HVCsvImporter = (() => {
     for (let p = 1; p <= maxPages; p++) {
       const page = await pdf.getPage(p);
       const content = await page.getTextContent();
-      const rows = []; // [{ y, items: [{ x, str }] }]
+      const rows = [];
 
       for (const item of content.items) {
         const str = (item.str || '').trim();
@@ -346,7 +524,6 @@ window.HVCsvImporter = (() => {
         targetRow.items.push({ x, str });
       }
 
-      // Top-to-bottom (descending Y), left-to-right (ascending X)
       rows.sort((a, b) => b.y - a.y);
       for (const r of rows) {
         r.items.sort((a, b) => a.x - b.x);
@@ -373,11 +550,9 @@ window.HVCsvImporter = (() => {
       format = 'paypal';
     }
 
-    // Infer statement year if dates omit year (e.g. DD.MM.)
     const yearMatch = lines.slice(0, 40).join(' ').match(/\b(20\d{2})\b/);
     const fallbackYear = yearMatch ? Number(yearMatch[1]) : new Date().getFullYear();
 
-    // Regex for German amounts at end of a booking line (e.g. -49,99 | 49,99- | 1.234,56 S | -1.234,56 EUR | 19,99 €)
     const amountAtEndRe = /(?:EUR|€)?\s*([+\-]?\d{1,3}(?:\.\d{3})*,\d{2}|[+\-]?\d+,\d{2})\s*([+\-SH])?\s*(?:EUR|€)?$/i;
     const leadingDateRe = /^(\d{1,2}\.\d{1,2}\.(?:\d{4}|\d{2})?)\s+(.*)$/;
     const secondDateRe = /^(\d{1,2}\.\d{1,2}\.(?:\d{4}|\d{2})?)\s+(.*)$/;
@@ -389,15 +564,13 @@ window.HVCsvImporter = (() => {
       if (!currentTx) return;
       const combinedLower = `${currentTx.merchant} ${currentTx.purpose}`.toLowerCase();
       if (!PDF_NOISE_LINES.some((n) => combinedLower.includes(n))) {
-        const cleanMerchant = normalizeMerchant(currentTx.merchant);
-        if (cleanMerchant.length >= 2) {
-          transactions.push({
-            date: currentTx.date,
-            merchant: cleanMerchant,
-            purpose: currentTx.purpose.trim(),
-            amount: currentTx.amount
-          });
-        }
+        const enriched = enrichTransaction(
+          currentTx.date,
+          currentTx.merchant,
+          currentTx.purpose.trim(),
+          currentTx.amount
+        );
+        if (enriched) transactions.push(enriched);
       }
       currentTx = null;
     };
@@ -413,10 +586,10 @@ window.HVCsvImporter = (() => {
       const amtMatch = rawLine.match(amountAtEndRe);
 
       if (dateMatch && amtMatch) {
+        // Neue Buchung beginnt -> vorherige Buchung inkl. aller Verwendungszweck-Zeilen abschließen
         flushTx();
         const txDate = parseDateFlexible(dateMatch[1], fallbackYear);
         let rest = dateMatch[2];
-        // Strip optional second date (Valuta) immediately following Buchungstag
         const valutaMatch = rest.match(secondDateRe);
         if (valutaMatch) rest = valutaMatch[2];
 
@@ -450,20 +623,30 @@ window.HVCsvImporter = (() => {
             amount: Math.round(expenseAmount * 100) / 100
           };
         }
-      } else if (currentTx && !dateMatch && !amtMatch && rawLine.length >= 3 && rawLine.length <= 120) {
-        // Continuation line of booking description (merchant/purpose in ING/Sparkasse/DKB PDFs)
-        if (!/^(?:Mandat|Referenz|Gläubiger-?ID|IBAN|BIC|Kundenreferenz)/i.test(rawLine)) {
-          if (currentTx.merchant.length < 22 && /^(?:Lastschrift|Dauerauftrag|SEPA|Kartenzahlung|Überweisung)/i.test(currentTx.merchant)) {
-            currentTx.merchant = rawLine;
-          } else if (currentTx.purpose.length < 140) {
-            currentTx.purpose = currentTx.purpose ? `${currentTx.purpose} ${rawLine}` : rawLine;
+      } else if (currentTx && !amtMatch && rawLine.length >= 2 && rawLine.length <= 180) {
+        // Mehrzeilige ING/Sparkasse/DKB-Verwendungszweckzeilen (auch wenn Zeile 2 mit Valuta-Datum beginnt, z. B. "01.10.2026 WP-ABRECHNUNG ... ISIN ...")
+        let contText = rawLine;
+        if (dateMatch) {
+          contText = dateMatch[2].trim();
+        }
+        if (contText.length >= 2) {
+          const isImportantSecurityLine = /ISIN|WP-?ABRECHNUNG|MULAC|MSCI|ETF|Referenz/i.test(contText);
+          if (isImportantSecurityLine || !/^(?:Mandat|Gläubiger-?ID|IBAN|BIC)/i.test(contText)) {
+            if (
+              !isImportantSecurityLine &&
+              currentTx.merchant.length < 22 &&
+              /^(?:Lastschrift|Dauerauftrag|SEPA|Kartenzahlung|Überweisung)/i.test(currentTx.merchant)
+            ) {
+              currentTx.merchant = contText;
+            } else if (currentTx.purpose.length < 500) {
+              currentTx.purpose = currentTx.purpose ? `${currentTx.purpose} ${contText}` : contText;
+            }
           }
         }
       }
     }
     flushTx();
 
-    // Check date span: if statement covers <= 45 days (e.g. 1 monthly PDF statement), include single-occurrence expenses too
     const uniqueDates = transactions.map((t) => t.date).filter(Boolean).sort();
     let isSingleMonth = false;
     if (uniqueDates.length >= 2) {
@@ -502,6 +685,8 @@ window.HVCsvImporter = (() => {
   return {
     parseCsvFile,
     parsePdfStatementFile,
-    parseStatementFile
+    parseStatementFile,
+    normalizeIsin,
+    extractSecurityMetadata
   };
 })();

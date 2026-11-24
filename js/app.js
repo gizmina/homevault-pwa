@@ -1426,11 +1426,11 @@
         const lookup = await ContactsSvc.lookup(c.provider_name, c.title, existing);
         db.run(
           `INSERT INTO contracts (
-            category, provider_name, title, cost_amount, billing_cycle, monthly_equivalent,
+            category, provider_name, title, contract_number, cost_amount, billing_cycle, monthly_equivalent,
             cost_type, is_variable, is_demo, emergency_contact, status, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'review_needed', ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'review_needed', ?, ?)`,
           [
-            c.category, c.provider_name, c.title, c.cost_amount, c.billing_cycle, monthlyEq,
+            c.category, c.provider_name, c.title, c.contract_number || null, c.cost_amount, c.billing_cycle, monthlyEq,
             c.cost_type || detectInvestmentCostType(c.provider_name, c.title, ''),
             c.is_variable ? 1 : 0, demoMode ? 1 : 0,
             lookup ? lookup.contact : null, now, now
