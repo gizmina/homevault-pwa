@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#172554"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="42%" r="55%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+  <!-- Opaque dark background (ideal for iOS Home Screen without transparency) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+  <!-- Subtle inner vault frame -->
+  <rect x="34" y="34" width="444" height="444" rx="88" fill="none" stroke="#38bdf8" stroke-opacity="0.18" stroke-width="6"/>
+  <!-- Stylized House + Shield Vault -->
+  <path d="M256 98 L404 208 V324 C404 388 338 424 256 442 C174 424 108 388 108 324 V208 Z"
+        fill="#0f172a" fill-opacity="0.55" stroke="url(#accent)" stroke-width="22" stroke-linejoin="round"/>
+  <!-- Roof highlight -->
+  <path d="M84 226 L256 96 L428 226"
+        fill="none" stroke="#7dd3fc" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Vault Lock / Keyhole Emblem -->
+  <circle cx="256" cy="264" r="46" fill="none" stroke="#e0f2fe" stroke-width="18"/>
+  <circle cx="256" cy="264" r="14" fill="#38bdf8"/>
+  <path d="M256 278 V338" stroke="#38bdf8" stroke-width="18" stroke-linecap="round"/>
+  <path d="M256 318 H280" stroke="#7dd3fc" stroke-width="14" stroke-linecap="round"/>
+</svg>

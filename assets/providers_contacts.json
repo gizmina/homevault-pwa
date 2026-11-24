@@ -1,0 +1,182 @@
+[
+  {
+    "aliases": ["amazon", "amazon prime", "amznprime", "prime video"],
+    "contact": "Amazon Kundenservice DE | Tel.: 0800 3638469 | Kündigung/Verwaltung: https://www.amazon.de/prime (Konto & Listen → Prime-Mitgliedschaft)"
+  },
+  {
+    "aliases": ["apple", "apple.com/bill", "icloud", "itunes"],
+    "contact": "Apple Support DE | Tel.: 0800 6645451 | Aboverwaltung: iPhone Einstellungen → Apple Account → Abonnements oder https://support.apple.com/de-de/118428"
+  },
+  {
+    "aliases": ["audible"],
+    "contact": "Audible Kundenservice DE | Tel.: 0800 5890073 | Portal: https://www.audible.de/account"
+  },
+  {
+    "aliases": ["disney", "disneyplus", "disney+"],
+    "contact": "Disney+ Hilfe-Center DE | Tel.: 089 38035163 | Portal: https://www.disneyplus.com/account"
+  },
+  {
+    "aliases": ["netflix"],
+    "contact": "Netflix Kundenservice DE | Tel.: 0800 7240697 | Portal: https://www.netflix.com/account"
+  },
+  {
+    "aliases": ["spotify"],
+    "contact": "Spotify Kundenservice | Kontakt: https://support.spotify.com/de/contact-spotify-support/ | Abo-Verwaltung: https://www.spotify.com/de/account"
+  },
+  {
+    "aliases": ["wow", "sky", "wowtv"],
+    "contact": "WOW / Sky Kundenservice | Hilfe & Chat: https://www.wowtv.de/hilfe | Konto: https://www.wowtv.de/mein-konto"
+  },
+  {
+    "aliases": ["google", "google one", "google commerce", "youtube"],
+    "contact": "Google One Support DE | Tel.: 0800 6270506 | Verwaltung: https://one.google.com/settings (bzw. Google Kontoinaktivitäts-Manager)"
+  },
+  {
+    "aliases": ["rundfunk", "ard", "zdf", "dradio", "beitragsservice"],
+    "contact": "ARD ZDF Deutschlandradio Beitragsservice | Tel.: 01806 99955510 | Abmeldung/Änderung: https://www.rundfunkbeitrag.de"
+  },
+  {
+    "aliases": ["mein grundeinkommen"],
+    "contact": "Mein Grundeinkommen e.V. | E-Mail: support@mein-grundeinkommen.de | Portal: https://www.mein-grundeinkommen.de"
+  },
+  {
+    "aliases": ["fit/one", "fit one", "fitone"],
+    "contact": "FIT/One Mitgliederverwaltung | E-Mail: service@fit-one.de | Portal: https://www.fit-one.de (Sonderkündigung bei Todesfall/Krankheit mit Nachweis)"
+  },
+  {
+    "aliases": ["fitx"],
+    "contact": "FitX Mitglieder-Service | Tel.: 0201 80674570 | E-Mail: kontakt@fitx.de | Portal: https://www.fitx.de"
+  },
+  {
+    "aliases": ["mcfit"],
+    "contact": "McFIT Kundenservice | Portal: https://www.mcfit.com/de/kontakt/"
+  },
+  {
+    "aliases": ["telekom", "magenta"],
+    "contact": "Telekom Kundenservice | Tel.: 0800 3301000 | Nachlass- & Vertragsservice: https://www.telekom.de/hilfe/vertrag-rechnung/todesfall"
+  },
+  {
+    "aliases": ["o2", "telefonica", "telefónica"],
+    "contact": "o2 Kundenservice (Telefónica Germany) | Tel.: 089 787979400 | Nachlass/Vertragsänderung: https://www.o2online.de/service/vertrag-tarif/todesfall/"
+  },
+  {
+    "aliases": ["vodafone", "kabel deutschland"],
+    "contact": "Vodafone Kundenservice | Tel.: 0800 1721212 | Nachlass-Service: https://www.vodafone.de/hilfe/vertrag/todesfall.html"
+  },
+  {
+    "aliases": ["congstar"],
+    "contact": "congstar Kundenservice | Tel.: 0221 79700700 | Portal: https://www.congstar.de/hilfe-service/kontakt/"
+  },
+  {
+    "aliases": ["1&1", "1 und 1", "einsundeins"],
+    "contact": "1&1 Kundenservice | Tel.: 0721 9600 | Portal: https://hilfe-center.1und1.de"
+  },
+  {
+    "aliases": ["e.on", "eon"],
+    "contact": "E.ON Energie Deutschland Kundenservice | Tel.: 0871 95386200 | Portal: https://www.eon.de/mein-eon"
+  },
+  {
+    "aliases": ["vattenfall"],
+    "contact": "Vattenfall Kundenservice | Tel.: 030 26711000 | Portal: https://www.vattenfall.de/service"
+  },
+  {
+    "aliases": ["enbw"],
+    "contact": "EnBW Kundenservice | Tel.: 0721 72586001 | Portal: https://www.enbw.com/service"
+  },
+  {
+    "aliases": ["allianz"],
+    "contact": "Allianz Kundenservice | Tel.: 0800 4100104 (Schadenhotline 24/7) | Portal: https://www.allianz.de/service/"
+  },
+  {
+    "aliases": ["huk", "huk-coburg", "huk24"],
+    "contact": "HUK-COBURG Kundenservice | Tel.: 0800 2153153 | E-Mail: info@huk-coburg.de | Portal: https://www.huk.de"
+  },
+  {
+    "aliases": ["ergo"],
+    "contact": "ERGO Versicherung Kundenservice | Tel.: 0800 3746000 | E-Mail: info@ergo.de | Portal: https://www.ergo.de"
+  },
+  {
+    "aliases": ["cosmos", "cosmosdirekt"],
+    "contact": "CosmosDirekt Kundenservice | Tel.: 0681 9666666 | Leistungsfall melden: https://www.cosmosdirekt.de/service/leistungsfall-melden/"
+  },
+  {
+    "aliases": ["dela", "monuta"],
+    "contact": "DELA Lebensversicherungen | Tel.: 0211 54268686 (Trauerfall-Hotline) | E-Mail: kundenservice@dela.de | Portal: https://www.dela.de/leistungsfall"
+  },
+  {
+    "aliases": ["getsafe"],
+    "contact": "Getsafe Kundenservice | Tel.: 06221 3513999 | E-Mail: support@hellogetsafe.com | Verwaltung über Getsafe App oder https://www.hellogetsafe.com"
+  },
+  {
+    "aliases": ["dkv"],
+    "contact": "DKV Deutsche Krankenversicherung | Tel.: 0800 3746444 | Portal: https://www.dkv.com"
+  },
+  {
+    "aliases": ["adac"],
+    "contact": "ADAC Mitglieder-Service | Tel.: 0800 5101112 (Pannenhilfe: 22 22 22) | Portal: https://www.adac.de"
+  },
+  {
+    "aliases": ["avd"],
+    "contact": "Automobilclub von Deutschland (AvD) | Tel.: 069 6606600 (Pannenhilfe: 0800 9909909) | E-Mail: service@avd.de | Portal: https://www.avd.de"
+  },
+  {
+    "aliases": ["bmw bank"],
+    "contact": "BMW Bank GmbH Kundenbetreuung | Tel.: 089 31841000 | E-Mail: kundenbetreuung@bmwbank.de | Portal: https://www.bmwbank.de"
+  },
+  {
+    "aliases": ["bmw charging", "digital charging"],
+    "contact": "BMW Charging Kundenservice (Digital Charging Solutions) | Tel.: 089 125016010 | Portal: https://bmw-public-charging.com"
+  },
+  {
+    "aliases": ["vw leasing", "volkswagen leasing", "vw bank"],
+    "contact": "Volkswagen Leasing GmbH | Tel.: 0531 212859500 | Portal: https://www.vwfs.de"
+  },
+  {
+    "aliases": ["ing", "ing-diba", "wertpapier-sparplan"],
+    "contact": "ING-DiBa AG | Tel.: 069 342224 | Nachlass-Service: https://www.ing.de/hilfe/nachlass/"
+  },
+  {
+    "aliases": ["dkb", "deutsche kreditbank"],
+    "contact": "DKB Kundenservice | Tel.: 030 12030000 (Sperr-Notruf: 116 116) | Portal: https://www.dkb.de"
+  },
+  {
+    "aliases": ["consors finanz", "bnp paribas"],
+    "contact": "Consors Finanz Kundenservice | Tel.: 0203 34695402 | E-Mail: kundenservice@consorsfinanz.de | Portal: https://www.consorsfinanz.de"
+  },
+  {
+    "aliases": ["targobank"],
+    "contact": "TARGOBANK Kundenservice | Tel.: 0211 90020111 | Nachlass-Service: https://www.targobank.de/service/nachlass.html"
+  },
+  {
+    "aliases": ["deutsche bank", "miles & more"],
+    "contact": "Miles & More Kreditkarten-Service (Deutsche Bank) | Tel.: 069 667888444 (Sperr-Notruf: 116 116) | Portal: https://www.miles-and-more-kreditkarte.com"
+  },
+  {
+    "aliases": ["degussa"],
+    "contact": "Degussa Goldhandel Kundenservice | Tel.: 069 8600680 | E-Mail: service@degussa-goldhandel.de | Portal: https://www.degussa-goldhandel.de"
+  },
+  {
+    "aliases": ["flexgold", "solit"],
+    "contact": "flexgold AG (Solit Gruppe) | Tel.: 06123 99070 | E-Mail: service@flexgold.com | Portal: https://www.flexgold.com"
+  },
+  {
+    "aliases": ["etoro"],
+    "contact": "eToro Kundenservice / Nachlass-Abteilung | Hilfe-Center: https://www.etoro.com/de/customer-service/ | E-Mail: support@etoro.com"
+  },
+  {
+    "aliases": ["scalable", "scalable capital"],
+    "contact": "Scalable Capital Kundenservice | Tel.: 089 38038067 | E-Mail: service@scalable.capital | Portal: https://de.scalable.capital"
+  },
+  {
+    "aliases": ["trade republic"],
+    "contact": "Trade Republic Kundenservice | E-Mail: service@traderepublic.com | Nachlass: https://support.traderepublic.com"
+  },
+  {
+    "aliases": ["american express", "amex"],
+    "contact": "American Express Kundenservice DE | Tel.: 069 97971000 (Sperr-Notruf: 069 97972000) | Portal: https://www.americanexpress.com/de-de/"
+  },
+  {
+    "aliases": ["paypal"],
+    "contact": "PayPal Kundenservice DE | Tel.: 0800 7234500 | Hilfe & Nachlass: https://www.paypal.com/de/smarthelp/home"
+  }
+]

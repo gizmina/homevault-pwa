@@ -1,0 +1,31 @@
+{
+  "name": "HomeVault – Offline Vertrags- & Notfall-Manager",
+  "short_name": "HomeVault",
+  "description": "100 % offline-fähige Vertrags-, Fixkosten- und Notfall-App mit lokalem SQLite-Speicher und QNAP-kompatiblem ZIP-Backup.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

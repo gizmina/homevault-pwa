@@ -1,0 +1,12 @@
+# Persönliche HomeVault-Daten & Backups niemals auf GitHub veröffentlichen!
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite*
+uploads/
+safety_backups/
+*.zip
+
+# OS-Metadaten
+.DS_Store
+Thumbs.db

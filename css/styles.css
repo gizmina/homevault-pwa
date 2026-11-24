@@ -1,0 +1,108 @@
+/* HomeVault PWA – 1:1 CSS aus app/templates/base.html */
+[x-cloak] { display: none !important; }
+
+html {
+  color-scheme: light;
+  overflow-x: clip;
+  max-width: 100vw;
+  scroll-padding-top: calc(max(12px, env(safe-area-inset-top)) + 4.5rem);
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100dvh;
+  overflow-x: clip;
+  max-width: 100vw;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hv-safe-header {
+  padding-top: max(6px, env(safe-area-inset-top, 0px));
+}
+
+@media (min-width: 768px) {
+  .hv-safe-header {
+    padding-top: 0;
+  }
+}
+
+.hv-safe-main {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.hv-sticky-filter {
+  top: var(--hv-header-h, 55px);
+}
+
+@media (min-width: 768px) {
+  .hv-sticky-filter {
+    top: var(--hv-header-h, 65px);
+  }
+}
+
+.hv-contract-card {
+  scroll-margin-top: calc(var(--hv-sticky-total-h, 220px) + 16px);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hv-contract-highlight {
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.72), 0 0 24px rgba(14, 165, 233, 0.35) !important;
+  border-color: rgb(14, 165, 233) !important;
+  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding-right: 2.5rem !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 1rem 1rem;
+  cursor: pointer;
+}
+
+html.dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+}
+
+input[type="date"] {
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+  .hv-contract-card {
+    break-inside: avoid;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+}

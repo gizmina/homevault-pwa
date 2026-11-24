@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>HomeVault – Notfall- &amp; Vertragsordner</title>
+
+  <!-- PWA, Favicon & iOS Homescreen Icons -->
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg" />
+  <link rel="icon" type="image/x-icon" href="./assets/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="HomeVault" />
+  <meta name="theme-color" content="#0f172a" />
+
+  <!-- Dark Mode standardmäßig vor Render setzen (exakt wie QNAP base.html) -->
+  <script>
+    (function () {
+      const saved = localStorage.getItem("hv_theme");
+      if (saved === "light") {
+        document.documentElement.classList.remove("dark");
+      } else {
+        document.documentElement.classList.add("dark");
+      }
+    })();
+  </script>
+
+  <!-- Lokales Tailwind CSS (Zero CDN, 1:1 Konfiguration aus QNAP base.html) -->
+  <script src="./vendor/tailwind/tailwindcss.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            vault: {
+              50: "#f0f9ff",
+              500: "#0ea5e9",
+              600: "#0284c7",
+              700: "#0369a1",
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body class="min-h-[100dvh] w-full max-w-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-150 antialiased">
+
+  <!-- OPFS Fallback Statusleiste (nur Safari / Firefox) -->
+  <div id="opfsBar" class="hidden no-print bg-slate-900 text-slate-100 border-b border-slate-800 px-4 py-2 text-xs sm:text-sm">
+    <div class="w-full max-w-[1850px] mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
+        <span><strong>Browser-Speicher (OPFS):</strong> Daten liegen lokal im Browser. Sichere regelmäßig als ZIP für Cloud oder QNAP NAS.</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" id="btnOpfsExport" class="px-3 py-1 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white transition">
+          Backup als ZIP sichern
+        </button>
+        <button type="button" id="btnOpfsImport" class="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 transition">
+          ZIP laden
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1:1 QNAP Header (ohne Backend-only Buttons Mails/Logs/Login) -->
+  <header
+    id="hv-app-header"
+    class="hv-safe-header sticky top-0 z-40 w-full max-w-full overflow-x-clip border-b border-slate-200/80 dark:border-slate-800/80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md no-print"
+  >
+    <div class="w-full max-w-[1850px] mx-auto px-4 sm:px-6">
+      <div class="flex h-12 md:h-16 items-center justify-between gap-2 min-w-0">
+        <!-- Brand -->
+        <a href="#dashboard" id="brandLink" class="flex items-center gap-2 min-w-0 shrink">
+          <img src="./assets/icon.svg" alt="HomeVault" class="w-8 h-8 rounded-lg shadow-sm shrink-0" />
+          <div class="leading-tight min-w-0 flex items-center flex-wrap gap-1.5">
+            <span class="font-bold text-base sm:text-lg tracking-tight text-slate-900 dark:text-white truncate">HomeVault</span>
+            <span id="brandBadgeMain" class="hidden lg:inline-block text-[11px] font-medium px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300">Notfallordner</span>
+            <span id="brandBadgeDemo" class="hidden text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">Demo-Modus</span>
+            <span id="syncPill" class="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              <span id="syncDot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span id="syncPillText">Gespeichert</span>
+            </span>
+          </div>
+        </a>
+
+        <!-- Desktop Actions (ab md) -->
+        <div class="hidden md:flex items-center gap-2 shrink-0">
+          <div id="navDesktopAppActions" class="hidden items-center gap-2">
+            <button
+              type="button"
+              id="btnOpenStatementUpload"
+              title="Kontoauszug (.csv) lokal hochladen &amp; auswerten"
+              class="inline-flex items-center gap-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-xs lg:text-sm font-medium bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60 transition"
+            >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+              </svg>
+              <span class="hidden xl:inline">Kontoauszug hochladen</span>
+              <span class="xl:hidden">Auszug</span>
+            </button>
+
+            <button
+              type="button"
+              id="btnEmergencyPrint"
+              title="Druckfertiges DIN-A4 Notfallhandbuch drucken / als PDF sichern"
+              class="inline-flex items-center gap-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-xs lg:text-sm font-medium bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200/70 dark:border-rose-800/60 transition"
+            >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <span>Notfall-PDF</span>
+            </button>
+
+            <button
+              type="button"
+              id="btnNewContractDesktop"
+              class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs lg:text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm transition"
+            >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+              </svg>
+              <span>Vertrag</span>
+            </button>
+          </div>
+
+          <!-- App installieren (PWA / Safari) -->
+          <button
+            type="button"
+            id="btnInstallPwa"
+            title="HomeVault als App installieren"
+            class="hidden inline-flex items-center gap-1.5 px-2.5 lg:px-3 py-2 rounded-lg text-xs lg:text-sm font-medium bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800/60 transition"
+          >
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            <span>App installieren</span>
+          </button>
+
+          <!-- Dark / Light Mode Toggle -->
+          <button
+            type="button"
+            onclick="window.hvToggleTheme()"
+            title="Dark / Light Mode umschalten"
+            class="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          >
+            <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+          </button>
+
+          <!-- Verwaltung / Datensicherung (entspricht QNAP /admin/users Icon) -->
+          <div id="navDesktopSettingsWrap" class="hidden items-center gap-1.5 pl-2 border-l border-slate-200 dark:border-slate-800">
+            <button
+              type="button"
+              id="btnOpenSettingsDesktop"
+              title="Speicherort &amp; Datensicherung (.zip)"
+              class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs lg:text-sm font-medium text-slate-600 hover:text-sky-600 dark:text-slate-300 dark:hover:text-sky-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              <span class="hidden xl:inline">Backup &amp; Ordner</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mobile Actions (< md) -->
+        <div class="flex md:hidden items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            id="btnNewContractMobile"
+            class="hidden inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm transition"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span>Vertrag</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="window.hvToggleTheme()"
+            title="Dark / Light Mode umschalten"
+            class="p-2 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          >
+            <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            id="btnMobileMenuToggle"
+            aria-label="Menü öffnen"
+            class="hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Menü-Drawer (< md) -->
+    <div id="mobileMenuDrawer" class="hidden md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-3 space-y-2.5">
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" id="btnMobileStatement" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60 transition">
+          <span>Kontoauszug</span>
+        </button>
+        <button type="button" id="btnMobileEmergencyPrint" class="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200/70 dark:border-rose-800/60 transition">
+          <span>Notfall-PDF</span>
+        </button>
+      </div>
+      <button type="button" id="btnMobileSettings" class="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">
+        <span>Datensicherung &amp; Speicherort</span>
+      </button>
+      <button type="button" id="btnInstallPwaMobile" class="hidden flex items-center justify-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-medium bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800/60 transition">
+        <span>App installieren</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Verstecktes File-Input für ZIP-Restore -->
+  <input type="file" id="hiddenZipInput" accept=".zip,application/zip" class="hidden" />
+
+  <main class="hv-safe-main w-full max-w-[1850px] mx-auto px-4 sm:px-6 py-5 sm:py-6">
+
+    <!-- 1. Loading Screen -->
+    <section id="loadingScreen" class="min-h-[65vh] flex flex-col items-center justify-center text-center gap-3">
+      <svg class="w-9 h-9 text-sky-500 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+      </svg>
+      <p id="loadingMessage" class="text-sm text-slate-500 dark:text-slate-400">Initialisiere HomeVault Offline-Datenbank ...</p>
+    </section>
+
+    <!-- 2. Setup Screen (File System Access API Ersteinrichtung) -->
+    <section id="setupScreen" class="hidden min-h-[70vh] flex items-center justify-center py-6">
+      <div class="w-full max-w-3xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-8">
+        <div class="flex items-center gap-3 mb-4">
+          <img src="./assets/icon.svg" alt="HomeVault" class="w-11 h-11 rounded-xl shadow-sm shrink-0" />
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">HomeVault Offline einrichten</h1>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">100 % lokal im Browser – voll kompatibel mit deiner QNAP-Datenbank &amp; Backups.</p>
+          </div>
+        </div>
+
+        <div class="mb-6 p-3.5 rounded-xl bg-sky-50/90 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/70 text-xs sm:text-sm text-sky-900 dark:text-sky-200">
+          <strong>Tipp für Cloud-Sync:</strong> Wähle einen Ordner in OneDrive, Google Drive oder Dropbox. HomeVault schreibt <code class="font-mono">homevault.db</code> atomar als geschlossene Datei ohne Lock-Konflikte.
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button type="button" id="btnSetupNewFolder" class="text-left p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 hover:border-sky-500 dark:hover:border-sky-500 transition shadow-sm">
+            <div class="flex items-center gap-2.5 text-sky-600 dark:text-sky-400 font-bold text-base mb-2">
+              <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+              </svg>
+              <span>Neuen Speicherordner wählen</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Wähle einen lokalen Ordner oder Cloud-Ordner. Eine vorhandene <code class="font-mono">homevault.db</code> wird direkt geöffnet – sonst wird eine neue Datenbank inkl. <code class="font-mono">uploads/</code> angelegt.
+            </p>
+          </button>
+
+          <button type="button" id="btnSetupRestoreZip" class="text-left p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 transition shadow-sm">
+            <div class="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 font-bold text-base mb-2">
+              <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+              </svg>
+              <span>Backup wiederherstellen (.zip)</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Wähle zuerst deinen Zielordner und entpacke dann ein bestehendes QNAP- oder HomeVault-Backup-ZIP inkl. aller PDFs direkt hinein.
+            </p>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Permission Reactivation Screen -->
+    <section id="permissionScreen" class="hidden min-h-[70vh] flex items-center justify-center py-6">
+      <div class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-6 sm:p-8 text-center">
+        <svg class="w-12 h-12 mx-auto text-sky-500 mb-3" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+        </svg>
+        <h1 class="text-xl font-bold text-slate-900 dark:text-white">Speicherordner wiederverbinden</h1>
+        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 mb-6">
+          Bitte bestätige einmalig den Zugriff auf deinen Ordner <strong id="permFolderName" class="text-slate-900 dark:text-white">HomeVault</strong>.
+        </p>
+        <div class="space-y-2.5">
+          <button type="button" id="btnReactivateFolder" class="w-full px-4 py-2.5 rounded-xl text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm transition">
+            Ordnerzugriff wieder aktivieren
+          </button>
+          <button type="button" id="btnChangeFolderFromPerm" class="w-full px-4 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            Anderen Ordner wählen oder ZIP laden
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. DASHBOARD VIEW (1:1 QNAP dashboard.html) -->
+    <div id="dashboardView" class="hidden">
+      <!-- Hero KPIs (1:1 grid-cols-2 lg:grid-cols-5) -->
+      <section id="kpiSection" class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 no-print"></section>
+
+      <!-- Durchgängig fixierte Such-, Filter- & Kategorie-Leiste (1:1 QNAP #hv-sticky-filter) -->
+      <section
+        id="hv-sticky-filter"
+        class="hv-sticky-filter sticky z-30 -mx-4 px-3 py-1.5 md:mx-0 md:px-4 md:py-3 rounded-b-2xl md:rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b md:border border-slate-200/90 dark:border-slate-800/90 shadow-md shadow-slate-900/5 dark:shadow-black/30 mb-5 md:mb-6 space-y-1.5 md:space-y-3 no-print"
+      >
+        <div class="flex flex-col md:flex-row gap-1.5 md:gap-3">
+          <!-- Sofortsuche -->
+          <div class="relative flex-1">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 md:left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input
+              type="search"
+              id="searchInput"
+              placeholder="Suche nach Anbieter, Vertragsnr., Notizen oder PDF-Volltext..."
+              class="w-full pl-9 md:pl-10 pr-3 md:pr-4 py-1.5 md:py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 md:contents gap-1.5 md:gap-3">
+            <!-- Status Filter -->
+            <select
+              id="filterStatus"
+              class="w-full md:w-auto pl-2.5 md:pl-3.5 pr-8 md:pr-10 py-1.5 md:py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 outline-none transition shrink-0"
+            >
+              <option value="all">Alle Status</option>
+              <option value="active">Aktiv</option>
+              <option value="review_needed" id="optReviewNeeded">Zu prüfen (0)</option>
+              <option value="upcoming_deadline">Frist &lt; 60 Tage</option>
+              <option value="expired">Beendet / Abgelaufen</option>
+              <option value="cancelled">Gekündigt</option>
+            </select>
+
+            <!-- Partner-Notfallmodus Toggle -->
+            <button
+              type="button"
+              id="btnEmergencyToggle"
+              class="inline-flex items-center justify-center gap-1.5 md:gap-2 px-2.5 md:px-4 py-1.5 md:py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700"
+            >
+              <svg class="w-3.5 h-3.5 md:w-4 md:h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              </svg>
+              <span id="btnEmergencyLabel" class="truncate">Notfall-Ansicht</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Kategorie-Pills (1:1 QNAP) -->
+        <div id="categoryPills" class="flex flex-wrap items-center gap-1 md:gap-2"></div>
+      </section>
+
+      <!-- Hinweis-Banner im Partner-Notfallmodus (1:1 QNAP) -->
+      <div id="emergencyBanner" class="hidden mb-6 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="font-bold text-rose-800 dark:text-rose-200 text-base">Notfall-Ansicht (Partner-Modus) aktiv</h2>
+          <p class="text-xs sm:text-sm text-rose-700 dark:text-rose-300">
+            Fokus auf Notfall-Hotlines, Vertrags- &amp; Kundennummern (mit 1-Klick-Kopieren) und direkte PDF-Belege.
+          </p>
+        </div>
+        <button type="button" id="btnEmergencyBannerPrint" class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white shrink-0 no-print">
+          Notfallhandbuch drucken (PDF)
+        </button>
+      </div>
+
+      <!-- Gruppierte Vertrags-Karten (1:1 QNAP #contracts-list) -->
+      <div id="contracts-list" class="hv-contract-card space-y-8"></div>
+    </div>
+
+    <!-- 5. CONTRACT FORM VIEW (1:1 QNAP contract_form.html) -->
+    <div id="contractFormView" class="hidden w-full max-w-[1850px] mx-auto">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <button type="button" id="btnFormBack" class="text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline">&larr; Zurück zum Dashboard</button>
+          <h1 id="formHeading" class="text-2xl font-bold tracking-tight mt-1">Neuen Vertrag anlegen</h1>
+        </div>
+        <button type="button" id="btnFormApprove" class="hidden px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition">
+          Review bestätigen
+        </button>
+      </div>
+
+      <form id="contractForm" class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-5">
+        <input type="hidden" id="fieldId" />
+
+        <!-- Kategorie, Kostenart & Status -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldCategory">Kategorie *</label>
+            <select id="fieldCategory" required class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldCostType">Kostenart</label>
+            <select id="fieldCostType" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none">
+              <option value="expense">Fixkosten / Ausgabe</option>
+              <option value="investment">Investment / Sparplan</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldStatus">Status</label>
+            <select id="fieldStatus" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none">
+              <option value="active">Aktiv</option>
+              <option value="review_needed">Zu prüfen</option>
+              <option value="cancelled">Gekündigt</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Anbieter & Titel -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldProvider">Anbieter *</label>
+            <input type="text" id="fieldProvider" required placeholder="z. B. Vodafone, Allianz, Vattenfall" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldTitle">Vertragstitel *</label>
+            <input type="text" id="fieldTitle" required placeholder="z. B. DSL 100 MBit, Privathaftpflicht" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          </div>
+        </div>
+
+        <!-- Nummern -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldContractNumber">Vertragsnummer / Policennr.</label>
+            <input type="text" id="fieldContractNumber" placeholder="z. B. VF-1234567" class="w-full px-3.5 py-2.5 rounded-xl text-sm font-mono bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldCustomerNumber">Kundennummer</label>
+            <input type="text" id="fieldCustomerNumber" placeholder="z. B. KD-987654" class="w-full px-3.5 py-2.5 rounded-xl text-sm font-mono bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          </div>
+        </div>
+
+        <!-- Kosten & Zyklus -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldAmount">Betrag (€)</label>
+            <input type="text" inputmode="decimal" id="fieldAmount" placeholder="39,99" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldCycle">Abrechnungszyklus</label>
+            <select id="fieldCycle" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none">
+              <option value="monthly">monatlich</option>
+              <option value="biweekly">Alle 2 Wochen</option>
+              <option value="quarterly">vierteljährlich</option>
+              <option value="yearly">jährlich</option>
+              <option value="one_time">einmalig</option>
+            </select>
+          </div>
+          <div class="px-3.5 py-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900 text-xs">
+            <span class="block text-slate-500 dark:text-slate-400">Monatsäquivalent</span>
+            <span id="monthlyPreview" class="font-bold text-sky-700 dark:text-sky-300 text-sm">0,00 € / Monat</span>
+          </div>
+        </div>
+
+        <!-- Variabler Betrag -->
+        <div>
+          <label class="inline-flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-200 cursor-pointer select-none">
+            <input type="checkbox" id="fieldVariable" class="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-sky-600 focus:ring-sky-500 bg-slate-50 dark:bg-slate-950" />
+            <span>Variabler Betrag <span class="text-xs text-slate-500 dark:text-slate-400">(schwankt monatlich, z. B. Mobilfunkrechnung)</span></span>
+          </label>
+        </div>
+
+        <!-- Laufzeiten & Fristen -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldStartDate">Beginn</label>
+            <input type="date" id="fieldStartDate" onclick="try{this.showPicker&&this.showPicker()}catch(e){}" class="w-full px-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldEndDate">Ende / Laufzeit</label>
+            <input type="date" id="fieldEndDate" onclick="try{this.showPicker&&this.showPicker()}catch(e){}" class="w-full px-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldNoticeDays">Frist (Tage)</label>
+            <input type="number" id="fieldNoticeDays" min="0" placeholder="30" class="w-full px-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldDeadline">Nächste Frist</label>
+            <input type="date" id="fieldDeadline" title="Leer lassen für automatische Berechnung aus Ende minus Frist" onclick="try{this.showPicker&&this.showPicker()}catch(e){}" class="w-full px-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          </div>
+        </div>
+
+        <!-- Notfall-Kontakt -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 mb-1.5" for="fieldEmergencyContact">Notfall-Kontakt / Hotline / Portal-URL</label>
+          <input type="text" id="fieldEmergencyContact" placeholder="z. B. 0800 4100 104 (Schadenhotline 24/7) | https://portal.anbieter.de" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none" />
+          <div id="contactSuggestionBanner" class="hidden mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 rounded-xl bg-sky-50/90 dark:bg-sky-950/50 border border-sky-200/80 dark:border-sky-800/70 text-xs">
+            <div class="min-w-0 text-slate-700 dark:text-slate-200 leading-snug">
+              <span class="font-semibold text-sky-700 dark:text-sky-300">Vorschlag gefunden</span>
+              <span id="contactSuggestionSource" class="text-slate-400"></span><span class="text-slate-500 dark:text-slate-400">:</span>
+              <span id="contactSuggestionText" class="ml-1 break-words"></span>
+            </div>
+            <button type="button" id="btnApplyContactSuggestion" class="shrink-0 self-start sm:self-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm transition">
+              Übernehmen
+            </button>
+          </div>
+        </div>
+
+        <!-- Notizen -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5" for="fieldNotes">Wichtige Hinweise für den Ernstfall</label>
+          <textarea id="fieldNotes" rows="4" placeholder="z. B. Zählernummer im Keller, Kundenkennwort, Makler-Telefonnummer..." class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 outline-none"></textarea>
+        </div>
+
+        <!-- Drag-&-Drop PDF-Upload (1:1 QNAP + lokale pdf.js Vorschläge) -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+            PDF-Dokumente anhängen (Drag &amp; Drop)
+          </label>
+          <div id="pdfDropZone" class="cursor-pointer rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 hover:border-sky-500 p-6 text-center transition">
+            <input type="file" id="contractPdfInput" multiple accept="application/pdf,.pdf" class="hidden" />
+            <svg class="w-8 h-8 mx-auto text-slate-400 mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-200">PDF-Dateien hier ablegen oder klicken zum Auswählen</p>
+            <p class="text-xs text-slate-400 mt-1">Text wird lokal per <code class="font-mono">pdf.js</code> für die Volltextsuche &amp; Daten-Erkennung indexiert.</p>
+            <div id="selectedPdfBadges" class="hidden mt-3 flex flex-wrap justify-center gap-2"></div>
+          </div>
+          <div id="pdfSuggestionsBox" class="hidden mt-3 p-3 rounded-xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/70">
+            <div class="text-xs font-semibold text-sky-700 dark:text-sky-300 mb-2">Erkannte Angaben aus PDF (zum Übernehmen anklicken):</div>
+            <div id="pdfSuggestionsChips" class="flex flex-wrap gap-1.5"></div>
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
+          <button type="button" id="btnFormCancel" class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            Abbrechen
+          </button>
+          <button type="submit" id="btnFormSubmit" class="px-6 py-2.5 rounded-xl text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm transition">
+            Vertrag anlegen
+          </button>
+        </div>
+      </form>
+
+      <!-- Angehängte Dokumente & Löschen (1:1 QNAP contract_form.html) -->
+      <div id="formDocsSection" class="hidden mt-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <h2 id="formDocsTitle" class="text-base font-bold">Angehängte Dokumente (0)</h2>
+          <button type="button" id="btnDeleteContract" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-rose-200 dark:border-rose-900 transition">
+            Vertrag löschen
+          </button>
+        </div>
+        <ul id="existingDocsList" class="divide-y divide-slate-100 dark:divide-slate-800"></ul>
+      </div>
+    </div>
+
+    <!-- 6. SETTINGS & BACKUP VIEW (1:1 QNAP users.html Datensicherungskarte) -->
+    <div id="settingsView" class="hidden w-full max-w-[1850px] mx-auto">
+      <div class="mb-6">
+        <button type="button" id="btnSettingsBack" class="text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline">&larr; Zurück zum Dashboard</button>
+        <h1 class="text-2xl font-bold tracking-tight mt-1">Verwaltung &ndash; Speicherort &amp; Datensicherung</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">
+          Lokalen Speicherordner verwalten sowie vollständige HomeVault-Backups (Datenbank + alle PDFs) exportieren und wiederherstellen.
+        </p>
+      </div>
+
+      <!-- Speicherort & Profil -->
+      <section class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-5 sm:p-6 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Speicherort &amp; Profil</h2>
+            <p id="settingsStorageInfo" class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">–</p>
+          </div>
+          <button type="button" id="btnSettingsChangeFolder" class="hidden px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">
+            Speicherordner wechseln
+          </button>
+        </div>
+
+        <div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <label class="inline-flex items-center gap-2.5 text-xs sm:text-sm text-slate-700 dark:text-slate-200 cursor-pointer select-none">
+            <input type="checkbox" id="toggleDemoMode" class="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-sky-600 focus:ring-sky-500 bg-slate-50 dark:bg-slate-950" />
+            <span>Demo-Datensätze (<code class="font-mono">is_demo = 1</code>) statt Haupt-Account anzeigen</span>
+          </label>
+          <span id="settingsDbStats" class="text-xs text-slate-500 dark:text-slate-400"></span>
+        </div>
+      </section>
+
+      <!-- Datensicherung & Wiederherstellung (1:1 QNAP users.html) -->
+      <section class="mt-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-5 sm:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-sky-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              <h2 class="text-lg font-bold text-slate-900 dark:text-white">Datensicherung &amp; Wiederherstellung</h2>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Sichert die komplette SQLite-Datenbank inklusive aller hochgeladenen PDF-Dokumente und <code class="font-mono">manifest.json</code> in einem QNAP-kompatiblen <code class="font-mono">.zip</code>-Archiv.
+            </p>
+          </div>
+
+          <button type="button" id="btnSettingsExportZip" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm transition shrink-0">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            <span>Komplett-Backup herunterladen (.zip)</span>
+          </button>
+        </div>
+
+        <div class="mt-5 space-y-4">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Backup wiederherstellen (Restore)</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Vor dem Überschreiben wird das gewählte Archiv geprüft (<code class="font-mono">manifest.json</code>, Zip-Slip-Schutz, SQLite <code class="font-mono">integrity_check</code>).
+            </p>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <button type="button" id="btnSettingsPickZip" class="flex-1 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 hover:border-sky-500 transition text-sm text-left">
+              <span id="settingsSelectedZipName" class="truncate text-slate-600 dark:text-slate-300">HomeVault Backup-Datei (.zip) auswählen...</span>
+              <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 shrink-0">Durchsuchen</span>
+            </button>
+
+            <button type="button" id="btnSettingsRestoreZip" disabled class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-sm transition shrink-0">
+              <span>Backup wiederherstellen</span>
+            </button>
+          </div>
+
+          <label class="inline-flex items-start gap-2.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+            <input type="checkbox" id="confirmRestoreCheck" class="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-rose-600 focus:ring-rose-500 bg-slate-50 dark:bg-slate-950" />
+            <span>Ich bestätige, dass die aktuelle Datenbank und alle Dokumente im gewählten Speicherort durch das Backup ersetzt werden sollen.</span>
+          </label>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Globaler Toast (1:1 QNAP base.html) -->
+  <div id="hvToastWrap" class="hidden fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 z-50 sm:max-w-sm no-print">
+    <div id="hvToastBox" class="px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2.5 bg-slate-800 text-white">
+      <span id="hvToastMsg"></span>
+    </div>
+  </div>
+
+  <!-- Kontoauszug Upload Modal (.csv) – 1:1 QNAP base.html Modal -->
+  <div id="statementModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print">
+    <div class="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <h2 class="font-bold text-base text-slate-900 dark:text-white">Kontoauszug hochladen</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Lokale Fixkosten-Erkennung (Bank-, Kreditkarten- &amp; PayPal-CSV – 100 % offline)</p>
+        </div>
+        <button type="button" id="btnCloseStatementModal" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 overflow-y-auto">
+        <div id="csvDropZone" class="cursor-pointer rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 hover:border-emerald-500 p-6 text-center transition">
+          <input type="file" id="csvFileInput" accept=".csv,text/csv" class="hidden" />
+          <svg class="w-9 h-9 mx-auto text-emerald-500 mb-2" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">CSV-Kontoauszug hier ablegen oder klicken</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">ING, Sparkasse, DKB, American Express &amp; PayPal CSVs werden lokal erkannt.</p>
+        </div>
+
+        <div id="csvSummary" class="hidden p-3.5 rounded-xl border bg-sky-50 dark:bg-sky-950/50 border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-200 text-xs sm:text-sm font-medium"></div>
+
+        <div id="csvTableWrap" class="hidden overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th class="p-2.5 w-8"><input type="checkbox" id="csvSelectAll" checked class="w-4 h-4 rounded" /></th>
+                <th class="p-2.5">Anbieter</th>
+                <th class="p-2.5">Kategorie</th>
+                <th class="p-2.5 text-right">Betrag</th>
+                <th class="p-2.5">Zyklus</th>
+              </tr>
+            </thead>
+            <tbody id="csvCandidatesBody" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="csvFooter" class="hidden flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
+        <button type="button" id="btnCsvImportSelected" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition">
+          Ausgewählte als Verträge anlegen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Integrierter Modal-PDF-Viewer (1:1 QNAP base.html Modal) -->
+  <div id="pdfModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-slate-950/80 backdrop-blur-sm no-print">
+    <div class="w-full max-w-5xl h-[88vh] flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+      <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+        <div class="flex items-center gap-2 min-w-0">
+          <svg class="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+          <span id="pdfPreviewTitle" class="font-semibold text-sm truncate">Dokument.pdf</span>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" id="btnPdfPrev" class="px-2 py-1 rounded-lg text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">&larr;</button>
+          <span id="pdfPageInfo" class="text-xs text-slate-500 dark:text-slate-400 px-1">1 / 1</span>
+          <button type="button" id="btnPdfNext" class="px-2 py-1 rounded-lg text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">&rarr;</button>
+          <button type="button" id="btnPdfZoomOut" class="px-2 py-1 rounded-lg text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">&minus;</button>
+          <button type="button" id="btnPdfZoomIn" class="px-2 py-1 rounded-lg text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">+</button>
+          <button type="button" id="btnPdfNewTab" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">Neuer Tab</button>
+          <button type="button" id="btnPdfDownload" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white transition">Download</button>
+          <button type="button" id="btnClosePdfModal" class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="flex-1 bg-slate-800 overflow-auto p-4 text-center">
+        <canvas id="pdfCanvas" class="mx-auto max-w-full h-auto shadow-2xl rounded"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Safari Install Hint Modal -->
+  <div id="safariInstallModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm no-print">
+    <div class="w-full max-w-md rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+        <h2 class="font-bold text-base text-slate-900 dark:text-white">HomeVault in Safari installieren</h2>
+        <button type="button" id="btnCloseSafariModal" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="p-5 text-xs sm:text-sm text-slate-600 dark:text-slate-300 space-y-3">
+        <p>In Safari kannst du HomeVault mit 2 Klicks als eigene Offline-App hinzufügen:</p>
+        <ol class="list-decimal pl-5 space-y-1.5">
+          <li><strong>macOS (Safari):</strong> Menü <strong>Ablage &rarr; Zum Dock hinzufügen ...</strong> (oder <strong>Teilen &rarr; Zum Dock hinzufügen</strong>).</li>
+          <li><strong>iPad / iPhone (Safari):</strong> Auf <strong>Teilen</strong> tippen und <strong>Zum Home-Bildschirm</strong> wählen.</li>
+        </ol>
+      </div>
+      <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-800 text-right">
+        <button type="button" id="btnSafariModalOk" class="px-4 py-2 rounded-xl text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white transition">Verstanden</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lokale Vendor-Skripte (Zero External CDN) -->
+  <script src="./vendor/sqljs/sql-wasm.js"></script>
+  <script src="./vendor/jszip/jszip.min.js"></script>
+  <script src="./vendor/pdfjs/pdf.min.js"></script>
+  <script src="./vendor/papaparse/papaparse.min.js"></script>
+
+  <!-- HomeVault PWA Module -->
+  <script src="./js/db/schema.js"></script>
+  <script src="./js/storage/storage-manager.js"></script>
+  <script src="./js/storage/backup-service.js"></script>
+  <script src="./js/services/emergency-contacts.js"></script>
+  <script src="./js/services/pdf-service.js"></script>
+  <script src="./js/services/csv-importer.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
