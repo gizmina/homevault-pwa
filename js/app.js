@@ -255,7 +255,6 @@
     }
 
     const info = Storage.getInfo();
-    $('opfsBar').classList.toggle('hidden', info.mode !== 'opfs');
     updateSyncPill({ state: 'saved', mode: info.mode, folderName: info.folderName });
 
     demoMode = false;
@@ -1189,7 +1188,6 @@
       db = result.db;
 
       const info = Storage.getInfo();
-      $('opfsBar').classList.toggle('hidden', info.mode !== 'opfs');
       updateSyncPill({ state: 'saved', mode: info.mode, folderName: info.folderName });
       demoMode = false;
       $('toggleDemoMode').checked = false;
@@ -1255,13 +1253,6 @@
     $('btnMobileSettings').addEventListener('click', () => {
       $('mobileMenuDrawer').classList.add('hidden');
       openSettingsView();
-    });
-
-    // OPFS bar
-    $('btnOpfsExport').addEventListener('click', handleExportZip);
-    $('btnOpfsImport').addEventListener('click', () => {
-      pendingZipAction = 'opfs_restore';
-      $('hiddenZipInput').click();
     });
 
     // Setup Screen
