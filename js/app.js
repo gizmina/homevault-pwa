@@ -50,6 +50,38 @@
   let toastTimer = null;
   let lastEditedContractId = null;
   let isResetting = false;
+  let lockedScrollY = 0;
+  let isBodyScrollLocked = false;
+
+  function lockBodyScroll() {
+    if (isBodyScrollLocked) return;
+    lockedScrollY = window.scrollY || window.pageYOffset || 0;
+    isBodyScrollLocked = true;
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${lockedScrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+
+  function unlockBodyScroll() {
+    if (!isBodyScrollLocked) return;
+    isBodyScrollLocked = false;
+    document.documentElement.style.overflow = '';
+    document.documentElement.style.overscrollBehavior = '';
+    document.body.style.overflow = '';
+    document.body.style.overscrollBehavior = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, lockedScrollY);
+  }
 
   const $ = (id) => document.getElementById(id);
 
@@ -1082,7 +1114,8 @@
     const container = $('pdfPagesContainer');
     container.scrollTop = 0;
 
-    // Modal zuerst sichtbar machen und sofort Ladehinweis anzeigen
+    // Modal zuerst sichtbar machen, Hintergrund-Scroll sperren und sofort Ladehinweis anzeigen
+    lockBodyScroll();
     $('pdfModal').classList.remove('hidden');
     PdfSvc.showLoadingState(container, 'PDF wird geladen…');
 
@@ -1116,6 +1149,7 @@
     const container = $('pdfPagesContainer');
     if (container) container.innerHTML = '';
     PdfSvc.destroyCurrentPdf();
+    unlockBodyScroll();
   }
 
   /* --- Kontoauszug CSV Modal --- */

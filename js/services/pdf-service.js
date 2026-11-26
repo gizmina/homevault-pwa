@@ -24,17 +24,20 @@ window.HVPdfService = (() => {
       throw new Error('PDF-Datei ist leer (0 Bytes).');
     }
 
-    // 1. Standard-Versuch mit lokalem Web Worker
+    // 1. Standard-Versuch mit lokalem Web Worker (mit 4s-Timeout gegen hängende iOS-Worker)
     try {
       const task = pdfjsLib.getDocument({
         data: uint8Array.slice(),
         isEvalSupported: false,
         useSystemFonts: true
       });
-      return await task.promise;
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('PDF-Worker-Timeout')), 4000)
+      );
+      return await Promise.race([task.promise, timeoutPromise]);
     } catch (workerErr) {
-      console.warn('pdf.js Worker fehlgeschlagen, wechsle auf Fallback ohne Worker:', workerErr);
-      // 2. Fallback ohne Web Worker (zuverlässig auf iOS Safari / restriktiven PWAs)
+      console.warn('pdf.js Worker fehlgeschlagen/Timeout, wechsle auf Fallback ohne Worker:', workerErr);
+      // 2. Fallback ohne Web Worker (100 % zuverlässig auf iOS Safari / PWAs)
       const fallbackTask = pdfjsLib.getDocument({
         data: uint8Array.slice(),
         disableWorker: true,
@@ -241,10 +244,12 @@ window.HVPdfService = (() => {
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.floor(renderViewport.width));
       canvas.height = Math.max(1, Math.floor(renderViewport.height));
+      canvas.style.display = 'block';
       canvas.style.width = '100%';
       canvas.style.maxWidth = `${cssWidth}px`;
       canvas.style.height = 'auto';
-      canvas.className = 'block bg-white rounded shadow-xl';
+      canvas.style.aspectRatio = `${canvas.width} / ${canvas.height}`;
+      canvas.className = 'block bg-white rounded shadow-xl shrink-0';
 
       pageWrap.appendChild(canvas);
 
