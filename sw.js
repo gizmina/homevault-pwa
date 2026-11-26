@@ -1,5 +1,5 @@
 /* HomeVault PWA – Offline-First Service Worker (Zero CDN, Relative Subpath Ready) */
-const CACHE_NAME = 'homevault-pwa-v4.0.0';
+const CACHE_NAME = 'homevault-pwa-v4.1.0';
 
 const PRECACHE_URLS = [
   './',

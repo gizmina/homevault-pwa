@@ -20,7 +20,7 @@ body {
 }
 
 .hv-safe-header {
-  padding-top: max(6px, env(safe-area-inset-top, 0px));
+  padding-top: calc(env(safe-area-inset-top, 0px) + 6px);
 }
 
 @media (min-width: 768px) {
@@ -31,6 +31,22 @@ body {
 
 .hv-safe-main {
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.hv-safe-modal {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+  padding-left: calc(env(safe-area-inset-left, 0px) + 0.5rem);
+  padding-right: calc(env(safe-area-inset-right, 0px) + 0.5rem);
+}
+
+@media (min-width: 640px) {
+  .hv-safe-modal {
+    padding-top: max(1.5rem, calc(env(safe-area-inset-top, 0px) + 1rem));
+    padding-bottom: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1rem));
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
 }
 
 .hv-sticky-filter {
