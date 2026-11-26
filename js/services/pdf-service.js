@@ -7,31 +7,67 @@ window.HVPdfService = (() => {
 
   function ensureWorker() {
     if (typeof pdfjsLib !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.min.js';
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdfjs/pdf.worker.min.js', window.location.href).href;
+      } catch {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.min.js';
+      }
+    }
+  }
+
+  async function openPdfDocumentSafe(uint8Array) {
+    ensureWorker();
+    if (typeof pdfjsLib === 'undefined') {
+      throw new Error('pdf.js Bibliothek ist nicht geladen.');
+    }
+    if (!uint8Array || uint8Array.length === 0) {
+      throw new Error('PDF-Datei ist leer (0 Bytes).');
+    }
+
+    // 1. Standard-Versuch mit lokalem Web Worker
+    try {
+      const task = pdfjsLib.getDocument({
+        data: uint8Array.slice(),
+        isEvalSupported: false,
+        useSystemFonts: true
+      });
+      return await task.promise;
+    } catch (workerErr) {
+      console.warn('pdf.js Worker fehlgeschlagen, wechsle auf Fallback ohne Worker:', workerErr);
+      // 2. Fallback ohne Web Worker (zuverlässig auf iOS Safari / restriktiven PWAs)
+      const fallbackTask = pdfjsLib.getDocument({
+        data: uint8Array.slice(),
+        disableWorker: true,
+        isEvalSupported: false,
+        useSystemFonts: true
+      });
+      return await fallbackTask.promise;
     }
   }
 
   async function extractTextAndSuggestions(uint8Array) {
-    ensureWorker();
     if (typeof pdfjsLib === 'undefined') {
       return { text: '', suggestions: { providers: [], ibans: [], amounts: [], dates: [], contractNumbers: [] } };
     }
 
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array.slice() });
-    const pdf = await loadingTask.promise;
-    const maxPages = Math.min(pdf.numPages, 15);
-    const pageTexts = [];
+    const pdf = await openPdfDocumentSafe(uint8Array);
+    try {
+      const maxPages = Math.min(pdf.numPages, 15);
+      const pageTexts = [];
 
-    for (let i = 1; i <= maxPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const str = content.items.map((item) => item.str || '').join(' ');
-      pageTexts.push(str);
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const str = content.items.map((item) => item.str || '').join(' ');
+        pageTexts.push(str);
+      }
+
+      const fullText = pageTexts.join('\n').replace(/[ \t]{2,}/g, ' ').trim();
+      const suggestions = await extractPatterns(fullText);
+      return { text: fullText, suggestions, pageCount: pdf.numPages };
+    } finally {
+      try { await pdf.destroy(); } catch { /* ignore */ }
     }
-
-    const fullText = pageTexts.join('\n').replace(/[ \t]{2,}/g, ' ').trim();
-    const suggestions = await extractPatterns(fullText);
-    return { text: fullText, suggestions, pageCount: pdf.numPages };
   }
 
   async function extractPatterns(text) {
@@ -126,7 +162,7 @@ window.HVPdfService = (() => {
     return { providers, ibans, amounts, dates, contractNumbers };
   }
 
-  /* --- Multi-Page Retina Canvas Renderer (CoinVault-style, zero iframe) --- */
+  /* --- Multi-Page Retina Canvas Renderer (iOS-safe 2x DPR cap, Worker Fallback, Zero iframe) --- */
   async function destroyCurrentPdf() {
     activeRenderToken += 1;
     if (currentPdfDoc) {
@@ -135,23 +171,42 @@ window.HVPdfService = (() => {
     }
   }
 
-  async function renderAllPagesIntoContainer(uint8Array, container, onPageUpdate) {
-    ensureWorker();
-    await destroyCurrentPdf();
-    const token = activeRenderToken;
-
+  function showLoadingState(container, text = 'PDF wird geladen…') {
+    if (!container) return;
     container.innerHTML = `
-      <div class="py-12 flex flex-col items-center justify-center gap-2 text-slate-300 text-xs">
+      <div class="py-12 flex flex-col items-center justify-center gap-2.5 text-slate-300 text-xs sm:text-sm">
         <svg class="w-7 h-7 text-sky-400 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
         </svg>
-        <span>PDF wird gerendert …</span>
+        <span>${text}</span>
       </div>
     `;
+  }
 
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array.slice() });
-    const pdf = await loadingTask.promise;
+  function showErrorState(container, title, detail) {
+    if (!container) return;
+    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    container.innerHTML = `
+      <div class="my-8 mx-auto max-w-md p-5 rounded-2xl bg-slate-900/90 border border-rose-500/40 text-center space-y-2">
+        <div class="text-rose-400 font-semibold text-sm">${esc(title)}</div>
+        ${detail ? `<div class="text-xs text-slate-300 break-words">${esc(detail)}</div>` : ''}
+        <div class="text-[11px] text-slate-400 pt-1">Tipp: Nutze oben rechts den <strong>Download</strong>-Button, um die Datei direkt zu sichern.</div>
+      </div>
+    `;
+  }
+
+  async function renderAllPagesIntoContainer(uint8Array, container, onPageUpdate) {
+    await destroyCurrentPdf();
+    const token = activeRenderToken;
+
+    showLoadingState(container, 'PDF wird geladen…');
+
+    // Warten bis Modal sichtbar gerendert ist, damit clientWidth korrekt berechnet wird
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (token !== activeRenderToken) return null;
+
+    const pdf = await openPdfDocumentSafe(uint8Array);
     if (token !== activeRenderToken) {
       try { await pdf.destroy(); } catch { /* ignore */ }
       return null;
@@ -164,8 +219,9 @@ window.HVPdfService = (() => {
     }
 
     container.innerHTML = '';
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const availableWidth = Math.max(280, Math.min((container.clientWidth || window.innerWidth) - 24, 960));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const measuredWidth = container.clientWidth > 60 ? container.clientWidth - 24 : (window.innerWidth - 32);
+    const availableWidth = Math.max(260, Math.min(measuredWidth, 960));
 
     for (let pageNum = 1; pageNum <= numPages; pageNum++) {
       if (token !== activeRenderToken) return null;
@@ -176,7 +232,6 @@ window.HVPdfService = (() => {
       const baseViewport = page.getViewport({ scale: 1 });
       const cssScale = availableWidth / baseViewport.width;
       const cssWidth = Math.floor(baseViewport.width * cssScale);
-      const cssHeight = Math.floor(baseViewport.height * cssScale);
       const renderViewport = page.getViewport({ scale: cssScale * dpr });
 
       const pageWrap = document.createElement('div');
@@ -184,11 +239,12 @@ window.HVPdfService = (() => {
       pageWrap.dataset.pageNum = String(pageNum);
 
       const canvas = document.createElement('canvas');
-      canvas.width = Math.floor(renderViewport.width);
-      canvas.height = Math.floor(renderViewport.height);
-      canvas.style.width = `${cssWidth}px`;
-      canvas.style.height = `${cssHeight}px`;
-      canvas.className = 'max-w-full h-auto bg-white rounded shadow-xl';
+      canvas.width = Math.max(1, Math.floor(renderViewport.width));
+      canvas.height = Math.max(1, Math.floor(renderViewport.height));
+      canvas.style.width = '100%';
+      canvas.style.maxWidth = `${cssWidth}px`;
+      canvas.style.height = 'auto';
+      canvas.className = 'block bg-white rounded shadow-xl';
 
       pageWrap.appendChild(canvas);
 
@@ -202,10 +258,11 @@ window.HVPdfService = (() => {
       container.appendChild(pageWrap);
 
       const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
     }
 
-    // Track current visible page on vertical scroll
     container.onscroll = () => {
       if (numPages <= 1 || typeof onPageUpdate !== 'function') return;
       const children = container.querySelectorAll('[data-page-num]');
@@ -225,6 +282,8 @@ window.HVPdfService = (() => {
   return {
     extractTextAndSuggestions,
     renderAllPagesIntoContainer,
-    destroyCurrentPdf
+    destroyCurrentPdf,
+    showLoadingState,
+    showErrorState
   };
 })();

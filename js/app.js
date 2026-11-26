@@ -1074,16 +1074,25 @@
   async function openPdfPreview(docId) {
     const doc = queryOne(db, 'SELECT * FROM documents WHERE id = ?', [docId]);
     if (!doc) return;
+
+    currentPreviewDoc = null;
+    $('pdfPreviewTitle').textContent = doc.filename || 'Dokument.pdf';
+    const pageBadge = $('pdfPageInfo');
+    pageBadge.classList.add('hidden');
+    const container = $('pdfPagesContainer');
+    container.scrollTop = 0;
+
+    // Modal zuerst sichtbar machen und sofort Ladehinweis anzeigen
+    $('pdfModal').classList.remove('hidden');
+    PdfSvc.showLoadingState(container, 'PDF wird geladen…');
+
     try {
       const bytes = await Storage.readUploadFile(doc.file_path);
+      if (!bytes || bytes.length === 0) {
+        throw new Error('Die PDF-Datei im lokalen Speicher ist leer oder fehlt.');
+      }
       currentPreviewDoc = { filename: doc.filename, bytes };
-      $('pdfPreviewTitle').textContent = doc.filename;
-      const pageBadge = $('pdfPageInfo');
-      pageBadge.classList.add('hidden');
-      $('pdfModal').classList.remove('hidden');
 
-      const container = $('pdfPagesContainer');
-      container.scrollTop = 0;
       await PdfSvc.renderAllPagesIntoContainer(bytes, container, (cur, total) => {
         if (total > 1) {
           pageBadge.textContent = `Seite ${cur} / ${total}`;
@@ -1093,7 +1102,12 @@
         }
       });
     } catch (err) {
-      window.hvToast(`PDF konnte nicht geöffnet werden: ${err.message}`, 'error');
+      const msg = err && err.message ? err.message : String(err || 'Unbekannter Fehler');
+      const hint = /NotFoundError|not found|fehlt/i.test(msg)
+        ? `Datei nicht im lokalen uploads/-Ordner gefunden (${doc.file_path}). Falls du ein Backup genutzt hast, prüfe den Ordnerzugriff oder stelle das ZIP neu wieder her.`
+        : msg;
+      PdfSvc.showErrorState(container, 'PDF konnte nicht angezeigt werden', hint);
+      window.hvToast(`PDF-Fehler: ${msg}`, 'error');
     }
   }
 
