@@ -1076,16 +1076,22 @@
     if (!doc) return;
     try {
       const bytes = await Storage.readUploadFile(doc.file_path);
-      if (currentPreviewDoc && currentPreviewDoc.blobUrl) {
-        URL.revokeObjectURL(currentPreviewDoc.blobUrl);
-      }
-      const blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-      currentPreviewDoc = { filename: doc.filename, bytes, blobUrl };
+      currentPreviewDoc = { filename: doc.filename, bytes };
       $('pdfPreviewTitle').textContent = doc.filename;
-      await PdfSvc.loadPdfForPreview(bytes);
+      const pageBadge = $('pdfPageInfo');
+      pageBadge.classList.add('hidden');
       $('pdfModal').classList.remove('hidden');
-      const rendered = await PdfSvc.renderPage($('pdfCanvas'), 1, 1.25);
-      if (rendered) $('pdfPageInfo').textContent = `${rendered.currentPage} / ${rendered.numPages}`;
+
+      const container = $('pdfPagesContainer');
+      container.scrollTop = 0;
+      await PdfSvc.renderAllPagesIntoContainer(bytes, container, (cur, total) => {
+        if (total > 1) {
+          pageBadge.textContent = `Seite ${cur} / ${total}`;
+          pageBadge.classList.remove('hidden');
+        } else {
+          pageBadge.classList.add('hidden');
+        }
+      });
     } catch (err) {
       window.hvToast(`PDF konnte nicht geöffnet werden: ${err.message}`, 'error');
     }
@@ -1093,6 +1099,9 @@
 
   function closePdfModal() {
     $('pdfModal').classList.add('hidden');
+    const container = $('pdfPagesContainer');
+    if (container) container.innerHTML = '';
+    PdfSvc.destroyCurrentPdf();
   }
 
   /* --- Kontoauszug CSV Modal --- */
@@ -1435,32 +1444,10 @@
       renderDashboard();
     });
 
-    // PDF Modal controls
+    // PDF Modal controls (Schließen per ×, Hintergrund-Klick & ESC; Download ohne neuen Tab)
     $('btnClosePdfModal').addEventListener('click', closePdfModal);
-    $('btnPdfPrev').addEventListener('click', async () => {
-      const st = PdfSvc.getPreviewState();
-      if (st.currentPage > 1) {
-        const r = await PdfSvc.renderPage($('pdfCanvas'), st.currentPage - 1, st.scale);
-        if (r) $('pdfPageInfo').textContent = `${r.currentPage} / ${r.numPages}`;
-      }
-    });
-    $('btnPdfNext').addEventListener('click', async () => {
-      const st = PdfSvc.getPreviewState();
-      if (st.currentPage < st.numPages) {
-        const r = await PdfSvc.renderPage($('pdfCanvas'), st.currentPage + 1, st.scale);
-        if (r) $('pdfPageInfo').textContent = `${r.currentPage} / ${r.numPages}`;
-      }
-    });
-    $('btnPdfZoomIn').addEventListener('click', async () => {
-      const st = PdfSvc.getPreviewState();
-      await PdfSvc.renderPage($('pdfCanvas'), st.currentPage, st.scale + 0.25);
-    });
-    $('btnPdfZoomOut').addEventListener('click', async () => {
-      const st = PdfSvc.getPreviewState();
-      await PdfSvc.renderPage($('pdfCanvas'), st.currentPage, st.scale - 0.25);
-    });
-    $('btnPdfNewTab').addEventListener('click', () => {
-      if (currentPreviewDoc && currentPreviewDoc.blobUrl) window.open(currentPreviewDoc.blobUrl, '_blank');
+    $('pdfModal').addEventListener('click', (e) => {
+      if (e.target === $('pdfModal')) closePdfModal();
     });
     $('btnPdfDownload').addEventListener('click', () => {
       if (currentPreviewDoc) downloadBytes(currentPreviewDoc.bytes, currentPreviewDoc.filename, 'application/pdf');

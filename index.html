@@ -700,34 +700,32 @@
     </div>
   </div>
 
-  <!-- Integrierter Modal-PDF-Viewer (1:1 QNAP base.html Modal) -->
+  <!-- Integrierter In-App Modal-PDF-Viewer (Retina Canvas via pdf.js, kein iframe / kein Neuer Tab) -->
   <div id="pdfModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-slate-950/80 backdrop-blur-sm no-print">
-    <div class="w-full max-w-5xl h-[88vh] flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
-      <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-        <div class="flex items-center gap-2 min-w-0">
+    <div class="w-full max-w-5xl h-[90dvh] flex flex-col rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+      <div class="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shrink-0">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
           <svg class="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
           </svg>
-          <span id="pdfPreviewTitle" class="font-semibold text-sm truncate">Dokument.pdf</span>
+          <span id="pdfPreviewTitle" class="font-semibold text-sm truncate min-w-0">Dokument.pdf</span>
+          <span id="pdfPageInfo" class="hidden shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Seite 1 / 1</span>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
-          <button type="button" id="btnPdfPrev" class="px-2 py-1 rounded-lg text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">&larr;</button>
-          <span id="pdfPageInfo" class="text-xs text-slate-500 dark:text-slate-400 px-1">1 / 1</span>
-          <button type="button" id="btnPdfNext" class="px-2 py-1 rounded-lg text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">&rarr;</button>
-          <button type="button" id="btnPdfZoomOut" class="px-2 py-1 rounded-lg text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">&minus;</button>
-          <button type="button" id="btnPdfZoomIn" class="px-2 py-1 rounded-lg text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">+</button>
-          <button type="button" id="btnPdfNewTab" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition">Neuer Tab</button>
-          <button type="button" id="btnPdfDownload" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white transition">Download</button>
-          <button type="button" id="btnClosePdfModal" class="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition">
+          <button type="button" id="btnPdfDownload" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white transition">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            <span>Download</span>
+          </button>
+          <button type="button" id="btnClosePdfModal" aria-label="Schließen" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </button>
         </div>
       </div>
-      <div class="flex-1 bg-slate-800 overflow-auto p-4 text-center">
-        <canvas id="pdfCanvas" class="mx-auto max-w-full h-auto shadow-2xl rounded"></canvas>
-      </div>
+      <div id="pdfPagesContainer" class="flex-1 bg-slate-800 overflow-y-auto overscroll-contain p-3 sm:p-5 space-y-4"></div>
     </div>
   </div>
 
